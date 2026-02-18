@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Repo Diagram</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .node {
+            transition: all 0.3s ease;
+        }
+        .node:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+        .connector {
+            stroke: #cbd5e1;
+            stroke-width: 2;
+            fill: none;
+        }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-slate-50 to-blue-50 min-h-screen p-8">
+    <div class="max-w-6xl mx-auto">
+        <header class="mb-12 text-center">
+            <h1 class="text-4xl font-bold text-slate-800 mb-4">Repository Structure</h1>
+            <p class="text-slate-600">Interactive diagram built with Tailwind CSS</p>
+        </header>
+
+        <div class="bg-white rounded-2xl shadow-xl p-8">
+            <!-- Diagram Container -->
+            <div class="relative" id="diagram">
+                <!-- SVG for connections -->
+                <svg class="absolute inset-0 w-full h-full pointer-events-none" style="z-index: 0;">
+                    <!-- Root to src -->
+                    <line class="connector" x1="200" y1="120" x2="200" y2="220" />
+                    <!-- Root to docs -->
+                    <line class="connector" x1="400" y1="120" x2="400" y2="220" />
+                    <!-- Root to tests -->
+                    <line class="connector" x1="600" y1="120" x2="600" y2="220" />
+                    <!-- Root to scripts -->
+                    <line class="connector" x1="800" y1="120" x2="800" y2="220" />
+
+                    <!-- src branches -->
+                    <line class="connector" x1="200" y1="260" x2="150" y2="340" />
+                    <line class="connector" x1="200" y1="260" x2="250" y2="340" />
+
+                    <!-- docs branches -->
+                    <line class="connector" x1="400" y1="260" x2="350" y2="340" />
+                    <line class="connector" x1="400" y1="260" x2="450" y2="340" />
+                </svg>
+
+                <!-- Nodes -->
+                <div class="relative z-10 grid grid-cols-4 gap-8">
+                    <!-- Root Node -->
+                    <div class="flex justify-center mb-8">
+                        <div class="node bg-gradient-to-r from-blue-500 to-purple-600 text-white rounded-xl p-6 shadow-lg cursor-pointer max-w-xs text-center">
+                            <div class="text-2xl font-bold mb-2">📦 repo-root</div>
+                            <div class="text-sm opacity-90">Main repository</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Second Row: Main Folders -->
+                <div class="relative z-10 grid grid-cols-4 gap-8 mb-8">
+                    <div class="flex justify-center">
+                        <div class="node bg-white border-2 border-blue-200 rounded-xl p-4 shadow-md hover:border-blue-400 cursor-pointer max-w-xs">
+                            <div class="text-xl font-semibold text-slate-800 mb-1">📁 src</div>
+                            <div class="text-sm text-slate-600">Source code</div>
+                            <div class="mt-2 text-xs text-slate-500">12 files</div>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-center">
+                        <div class="node bg-white border-2 border-green-200 rounded-xl p-4 shadow-md hover:border-green-400 cursor-pointer max-w-xs">
+                            <div class="text-xl font-semibold text-slate-800 mb-1">📁 docs</div>
+                            <div class="text-sm text-slate-600">Documentation</div>
+                            <div class="mt-2 text-xs text-slate-500">5 files</div>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-center">
+                        <div class="node bg-white border-2 border-yellow-200 rounded-xl p-4 shadow-md hover:border-yellow-400 cursor-pointer max-w-xs">
+                            <div class="text-xl font-semibold text-slate-800 mb-1">📁 tests</div>
+                            <div class="text-sm text-slate-600">Test suites</div>
+                            <div class="mt-2 text-xs text-slate-500">8 files</div>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-center">
+                        <div class="node bg-white border-2 border-purple-200 rounded-xl p-4 shadow-md hover:border-purple-400 cursor-pointer max-w-xs">
+                            <div class="text-xl font-semibold text-slate-800 mb-1">📁 scripts</div>
+                            <div class="text-sm text-slate-600">Automation</div>
+                            <div class="mt-2 text-xs text-slate-500">3 files</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Third Row: Subdirectories -->
+                <div class="relative z-10 grid grid-cols-2 gap-8 max-w-2xl mx-auto">
+                    <div class="flex justify-center">
+                        <div class="node bg-slate-50 border border-slate-200 rounded-lg p-3 shadow-sm hover:border-blue-300 cursor-pointer max-w-xs">
+                            <div class="text-sm font-medium text-slate-700">components/</div>
+                            <div class="text-xs text-slate-500">React components</div>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-center">
+                        <div class="node bg-slate-50 border border-slate-200 rounded-lg p-3 shadow-sm hover:border-blue-300 cursor-pointer max-w-xs">
+                            <div class="text-sm font-medium text-slate-700">utils/</div>
+                            <div class="text-xs text-slate-500">Helper functions</div>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-center">
+                        <div class="node bg-slate-50 border border-slate-200 rounded-lg p-3 shadow-sm hover:border-green-300 cursor-pointer max-w-xs">
+                            <div class="text-sm font-medium text-slate-700">api/</div>
+                            <div class="text-xs text-slate-500">API docs</div>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-center">
+                        <div class="node bg-slate-50 border border-slate-200 rounded-lg p-3 shadow-sm hover:border-green-300 cursor-pointer max-w-xs">
+                            <div class="text-sm font-medium text-slate-700">guides/</div>
+                            <div class="text-xs text-slate-500">User guides</div>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-center">
+                        <div class="node bg-slate-50 border border-slate-200 rounded-lg p-3 shadow-sm hover:border-yellow-300 cursor-pointer max-w-xs">
+                            <div class="text-sm font-medium text-slate-700">unit/</div>
+                            <div class="text-xs text-slate-500">Unit tests</div>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-center">
+                        <div class="node bg-slate-50 border border-slate-200 rounded-lg p-3 shadow-sm hover:border-yellow-300 cursor-pointer max-w-xs">
+                            <div class="text-sm font-medium text-slate-700">integration/</div>
+                            <div class="text-xs text-slate-500">Integration tests</div>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-center">
+                        <div class="node bg-slate-50 border border-slate-200 rounded-lg p-3 shadow-sm hover:border-purple-300 cursor-pointer max-w-xs">
+                            <div class="text-sm font-medium text-slate-700">deploy.sh</div>
+                            <div class="text-xs text-slate-500">Deployment script</div>
+                        </div>
+                    </div>
+
+                    <div class="flex justify-center">
+                        <div class="node bg-slate-50 border border-slate-200 rounded-lg p-3 shadow-sm hover:border-purple-300 cursor-pointer max-w-xs">
+                            <div class="text-sm font-medium text-slate-700">backup.sh</div>
+                            <div class="text-xs text-slate-500">Backup script</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Legend -->
+            <div class="mt-12 pt-8 border-t border-slate-200">
+                <h3 class="text-lg font-semibold text-slate-700 mb-4">Legend</h3>
+                <div class="flex flex-wrap gap-6">
+                    <div class="flex items-center gap-2">
+                        <div class="w-4 h-4 rounded bg-blue-500"></div>
+                        <span class="text-sm text-slate-600">Main folder</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <div class="w-4 h-4 rounded bg-white border-2 border-blue-200"></div>
+                        <span class="text-sm text-slate-600">Primary directory</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <div class="w-4 h-4 rounded bg-slate-50 border border-slate-200"></div>
+                        <span class="text-sm text-slate-600">Subdirectory</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stats -->
+        <div class="mt-8 grid grid-cols-3 gap-6">
+            <div class="bg-white rounded-xl p-6 shadow-md text-center">
+                <div class="text-3xl font-bold text-blue-600">28</div>
+                <div class="text-sm text-slate-600 mt-1">Total Files</div>
+            </div>
+            <div class="bg-white rounded-xl p-6 shadow-md text-center">
+                <div class="text-3xl font-bold text-green-600">4</div>
+                <div class="text-sm text-slate-600 mt-1">Main Folders</div>
+            </div>
+            <div class="bg-white rounded-xl p-6 shadow-md text-center">
+                <div class="text-3xl font-bold text-purple-600">8</div>
+                <div class="text-sm text-slate-600 mt-1">Subfolders</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Simple interactivity
+        document.querySelectorAll('.node').forEach(node => {
+            node.addEventListener('click', function() {
+                const name = this.querySelector('div').textContent;
+                alert(`Clicked: ${name}`);
+            });
+        });
+    </script>
+</body>
+</html>
