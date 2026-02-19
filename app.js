@@ -17,7 +17,8 @@ class RepoDiagram {
         this.loadBtn = document.getElementById('loadBtn');
         this.expandAllBtn = document.getElementById('expandAllBtn');
         this.collapseAllBtn = document.getElementById('collapseAllBtn');
-        this.exportBtn = document.getElementById('exportBtn');
+        this.exportSVGBtn = document.getElementById('exportSVGBtn');
+        this.exportPNGBtn = document.getElementById('exportPNGBtn');
         this.searchInput = document.getElementById('searchInput');
         this.depthSelect = document.getElementById('depthSelect');
         this.diagram = document.getElementById('diagram');
@@ -27,6 +28,8 @@ class RepoDiagram {
         this.status = document.getElementById('status');
         this.emptyState = document.getElementById('emptyState');
         this.statsBar = document.getElementById('statsBar');
+        this.darkModeBtn = document.getElementById('darkModeBtn');
+        this.controlsBg = document.getElementById('controlsBg');
     }
 
     bindEvents() {
@@ -52,7 +55,9 @@ class RepoDiagram {
             this.expanded.clear();
             this.render();
         });
-        this.exportBtn.addEventListener('click', () => this.exportSVG());
+        this.exportSVGBtn.addEventListener('click', () => this.exportSVG());
+        this.exportPNGBtn.addEventListener('click', () => this.exportPNG());
+        this.darkModeBtn.addEventListener('click', () => this.toggleDarkMode());
     }
 
     async loadRepo() {
@@ -517,6 +522,121 @@ Mode: ${file.mode}
         URL.revokeObjectURL(url);
 
         this.showStatus('SVG exported!', 'success');
+    }
+
+    exportPNG() {
+        // Simple PNG export using canvas
+        const diagram = this.diagram;
+        const nodes = this.nodesContainer;
+        const connections = this.connectionsSvg;
+        
+        if (!this.repoData) {
+            this.showStatus('No diagram to export', 'error');
+            return;
+        }
+
+        // Create a canvas
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        const width = diagram.clientWidth;
+        const height = diagram.clientHeight;
+        canvas.width = width;
+        canvas.height = height;
+
+        // White background
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, width, height);
+
+        // Draw connections
+        const connLines = connections.querySelectorAll('line');
+        ctx.strokeStyle = '#94a3b8';
+        ctx.lineWidth = 2;
+        connLines.forEach(line => {
+            const x1 = parseFloat(line.getAttribute('x1'));
+            const y1 = parseFloat(line.getAttribute('y1'));
+            const x2 = parseFloat(line.getAttribute('x2'));
+            const y2 = parseFloat(line.getAttribute('y2'));
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.lineTo(x2, y2);
+            ctx.stroke();
+        });
+
+        // Draw nodes
+        const nodeElements = nodes.querySelectorAll('.node');
+        ctx.font = '14px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        nodeElements.forEach(node => {
+            const x = parseFloat(node.style.left) + 90; // center (180/2)
+            const y = parseFloat(node.style.top) + 40; // center (80/2)
+            const type = node.dataset.type;
+            const name = node.querySelector('.node-name').textContent;
+            const rect = node.querySelector('div:first-child'); // the inner content div
+
+            // Node background
+            ctx.fillStyle = '#ffffff';
+            ctx.strokeStyle = type === 'tree' ? '#3b82f6' : '#94a3b8';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.roundRect(x - 90, y - 40, 180, 80, 8);
+            ctx.fill();
+            ctx.stroke();
+
+            // Icon
+            const icon = type === 'tree' ? '📁' : '📄';
+            ctx.font = '24px sans-serif';
+            ctx.fillText(icon, x, y - 15);
+
+            // Name
+            ctx.font = 'bold 12px sans-serif';
+            ctx.fillStyle = '#1e293b';
+            ctx.fillText(name, x, y + 10);
+        });
+
+        // Convert to PNG and download
+        canvas.toBlob((blob) => {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${this.currentRepo.replace('/', '-')}-diagram.png`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            this.showStatus('PNG exported!', 'success');
+        }, 'image/png');
+    }
+
+    toggleDarkMode() {
+        const body = document.body;
+        const controls = this.controlsBg;
+        const isDark = body.classList.toggle('dark');
+        
+        if (isDark) {
+            body.classList.remove('from-slate-50', 'via-blue-50', 'to-purple-50');
+            body.classList.add('from-slate-900', 'via-slate-800', 'to-slate-900');
+            controls.classList.remove('bg-white');
+            controls.classList.add('bg-slate-800');
+            this.darkModeBtn.innerHTML = `
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/>
+                </svg>
+                Light Mode
+            `;
+        } else {
+            body.classList.add('from-slate-50', 'via-blue-50', 'to-purple-50');
+            body.classList.remove('from-slate-900', 'via-slate-800', 'to-slate-900');
+            controls.classList.add('bg-white');
+            controls.classList.remove('bg-slate-800');
+            this.darkModeBtn.innerHTML = `
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
+                </svg>
+                Dark Mode
+            `;
+        }
     }
 }
 
