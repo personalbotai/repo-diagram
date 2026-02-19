@@ -2,11 +2,16 @@
 .node {
     transition: all 0.3s ease;
     cursor: pointer;
+    outline: none;
 }
 
 .node:hover {
     transform: translateY(-4px);
     box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+.node:focus {
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.5);
 }
 
 .connector {
@@ -91,4 +96,54 @@
     background-color: #dbeafe;
     color: #1e40af;
     border: 1px solid #bfdbfe;
+}
+
+/* Modal styles */
+#fileInfoModal {
+    backdrop-filter: blur(4px);
+}
+
+#fileInfoModal .bg-white {
+    animation: modalSlideIn 0.3s ease-out;
+}
+
+@keyframes modalSlideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-20px) scale(0.95);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+/* Loading skeleton */
+.skeleton {
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: loading 1.5s infinite;
+}
+
+@keyframes loading {
+    0% { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+/* Scrollbar styling */
+#nodes::-webkit-scrollbar {
+    width: 8px;
+}
+
+#nodes::-webkit-scrollbar-track {
+    background: #f1f5f9;
+}
+
+#nodes::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+}
+
+#nodes::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
 }

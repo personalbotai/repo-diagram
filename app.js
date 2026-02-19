@@ -7,6 +7,12 @@ class RepoDiagram {
         this.maxDepth = 2;
         this.searchQuery = '';
         this.currentRepo = '';
+        this.cache = new Map();
+        this.cacheTimeout = 5 * 60 * 1000; // 5 minutes
+        this.rateLimitRemaining = null;
+        this.rateLimitReset = null;
+        this.focusedNode = null;
+        this.nodeTabIndex = 0;
         
         this.initElements();
         this.bindEvents();
@@ -58,6 +64,59 @@ class RepoDiagram {
         this.exportSVGBtn.addEventListener('click', () => this.exportSVG());
         this.exportPNGBtn.addEventListener('click', () => this.exportPNG());
         this.darkModeBtn.addEventListener('click', () => this.toggleDarkMode());
+        
+        // Keyboard navigation
+        document.addEventListener('keydown', (e) => this.handleKeyDown(e));
+    }
+
+    handleKeyDown(e) {
+        // Only handle keyboard navigation when diagram is loaded
+        if (!this.repoData) return;
+        
+        const nodes = this.nodesContainer.querySelectorAll('.node');
+        if (nodes.length === 0) return;
+        
+        switch (e.key) {
+            case 'ArrowDown':
+                e.preventDefault();
+                this.focusNextNode(nodes, 1);
+                break;
+            case 'ArrowUp':
+                e.preventDefault();
+                this.focusNextNode(nodes, -1);
+                break;
+            case 'Enter':
+            case ' ':
+                e.preventDefault();
+                if (this.focusedNode) {
+                    this.focusedNode.click();
+                }
+                break;
+            case 'Escape':
+                e.preventDefault();
+                this.collapseAllBtn.click();
+                break;
+        }
+    }
+
+    focusNextNode(nodes, direction) {
+        const currentIndex = this.focusedNode 
+            ? Array.from(nodes).indexOf(this.focusedNode)
+            : -1;
+        
+        let newIndex;
+        if (currentIndex === -1) {
+            newIndex = direction > 0 ? 0 : nodes.length - 1;
+        } else {
+            newIndex = (currentIndex + direction + nodes.length) % nodes.length;
+        }
+        
+        const newNode = nodes[newIndex];
+        if (newNode) {
+            newNode.focus();
+            this.focusedNode = newNode;
+            newNode.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
     }
 
     async loadRepo() {
@@ -67,7 +126,7 @@ class RepoDiagram {
             return;
         }
 
-        // Parse owner/repo format
+        // Parse owner/repo format and sanitize
         let repo = input;
         if (input.includes('github.com/')) {
             const parts = input.split('github.com/');
@@ -76,7 +135,8 @@ class RepoDiagram {
             }
         }
 
-        if (!repo.includes('/')) {
+        // Sanitize: only allow alphanumeric, hyphens, underscores, and slashes
+        if (!/^[\w.-]+\/[\w.-]+$/.test(repo)) {
             this.showStatus('Invalid repository format. Use "owner/repo"', 'error');
             return;
         }
@@ -104,29 +164,119 @@ class RepoDiagram {
     }
 
     async fetchRepoStructure(repo) {
+        // Check cache first
+        const cached = this.getFromCache(repo);
+        if (cached) {
+            console.log('Loading from cache:', repo);
+            return cached;
+        }
+
         const [owner, name] = repo.split('/');
         
-        // Fetch repository tree recursively
-        const response = await fetch(`https://api.github.com/repos/${owner}/${name}/git/trees/main?recursive=1`, {
+        // Check rate limit before making request
+        if (this.rateLimitRemaining === 0 && this.rateLimitReset) {
+            const now = Date.now();
+            const resetTime = this.rateLimitReset * 1000;
+            if (now < resetTime) {
+                const waitSeconds = Math.ceil((resetTime - now) / 1000);
+                throw new Error(`Rate limit exceeded. Please wait ${waitSeconds} seconds or use a GitHub token.`);
+            }
+        }
+
+        // Try with exponential backoff
+        let lastError;
+        for (let attempt = 0; attempt < 3; attempt++) {
+            try {
+                const response = await this.makeGitHubRequest(owner, name);
+                const data = await response.json();
+                
+                // Update rate limit info
+                this.updateRateLimitInfo(response);
+                
+                // Convert flat tree to hierarchical structure
+                const treeData = this.buildTree(data.tree, repo);
+                
+                // Cache the result
+                this.setInCache(repo, treeData);
+                
+                return treeData;
+            } catch (error) {
+                lastError = error;
+                
+                // Don't retry on client errors (4xx except rate limit)
+                if (error.status && error.status >= 400 && error.status < 500 && error.status !== 403) {
+                    throw error;
+                }
+                
+                // Wait before retry (exponential backoff)
+                if (attempt < 2) {
+                    const delay = Math.min(1000 * Math.pow(2, attempt), 5000);
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                }
+            }
+        }
+        
+        throw lastError;
+    }
+
+    async makeGitHubRequest(owner, name) {
+        const url = `https://api.github.com/repos/${owner}/${name}/git/trees/main?recursive=1`;
+        const response = await fetch(url, {
             headers: {
                 'Accept': 'application/vnd.github.v3+json'
             }
         });
 
         if (!response.ok) {
-            if (response.status === 404) {
-                throw new Error('Repository not found');
+            const error = new Error(`GitHub API error: ${response.status}`);
+            error.status = response.status;
+            
+            // Parse error message from response
+            try {
+                const errorData = await response.json();
+                if (errorData.message) {
+                    error.message = errorData.message;
+                }
+            } catch (e) {
+                // Ignore JSON parse errors
             }
-            if (response.status === 403) {
-                throw new Error('API rate limit exceeded. Please try again later.');
-            }
-            throw new Error(`GitHub API error: ${response.status}`);
+            
+            throw error;
         }
 
-        const data = await response.json();
+        return response;
+    }
+
+    updateRateLimitInfo(response) {
+        const remaining = response.headers.get('X-RateLimit-Remaining');
+        const reset = response.headers.get('X-RateLimit-Reset');
         
-        // Convert flat tree to hierarchical structure
-        return this.buildTree(data.tree, repo);
+        if (remaining !== null) {
+            this.rateLimitRemaining = parseInt(remaining, 10);
+        }
+        if (reset !== null) {
+            this.rateLimitReset = parseInt(reset, 10);
+        }
+    }
+
+    getFromCache(key) {
+        const cached = this.cache.get(key);
+        if (!cached) return null;
+        
+        const now = Date.now();
+        if (now - cached.timestamp > this.cacheTimeout) {
+            this.cache.delete(key);
+            return null;
+        }
+        
+        return cached.data;
+    }
+
+    setInCache(key, data) {
+        this.cache.set(key, {
+            data,
+            timestamp: Date.now()
+        });
     }
 
     buildTree(flatTree, repoPath) {
@@ -310,6 +460,10 @@ class RepoDiagram {
     createNodeElement(node, root) {
         const container = document.createElement('div');
         container.className = 'node bg-white rounded-xl shadow-md p-4 border-2';
+        container.setAttribute('tabindex', '0');
+        container.setAttribute('role', 'treeitem');
+        container.setAttribute('aria-label', `${node.type === 'tree' ? 'Folder' : 'File'}: ${node.name}`);
+        container.setAttribute('aria-expanded', node.type === 'tree' ? (this.expanded.has(node.path || 'root') ? 'true' : 'false') : 'null');
         container.dataset.path = node.path || 'root';
         container.dataset.type = node.type;
 
@@ -388,6 +542,16 @@ class RepoDiagram {
                 this.showFileInfo(node);
             });
         }
+
+        // Focus event for keyboard navigation
+        container.addEventListener('focus', () => {
+            this.focusedNode = container;
+            container.classList.add('ring-2', 'ring-blue-500');
+        });
+
+        container.addEventListener('blur', () => {
+            container.classList.remove('ring-2', 'ring-blue-500');
+        });
 
         return container;
     }
@@ -476,14 +640,73 @@ class RepoDiagram {
     }
 
     showFileInfo(file) {
-        const info = `
-File: ${file.name}
-Path: ${file.path}
-Size: ${this.formatSize(file.size)}
-Type: ${file.type}
-Mode: ${file.mode}
-        `.trim();
-        alert(info);
+        // Create or reuse modal
+        let modal = document.getElementById('fileInfoModal');
+        if (!modal) {
+            modal = document.createElement('div');
+            modal.id = 'fileInfoModal';
+            modal.className = 'fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50';
+            modal.innerHTML = `
+                <div class="bg-white rounded-xl shadow-2xl p-6 max-w-lg w-full mx-4">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-xl font-bold text-slate-800">File Information</h3>
+                        <button id="closeModal" class="text-slate-500 hover:text-slate-700 text-2xl">&times;</button>
+                    </div>
+                    <div id="modalContent" class="text-slate-700"></div>
+                    <div class="mt-6 flex justify-end">
+                        <button id="copyPath" class="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 mr-2">Copy Path</button>
+                        <button id="closeModalBtn" class="px-4 py-2 bg-slate-200 text-slate-800 rounded-lg hover:bg-slate-300">Close</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+            
+            // Event listeners
+            modal.querySelector('#closeModal').addEventListener('click', () => this.hideModal());
+            modal.querySelector('#closeModalBtn').addEventListener('click', () => this.hideModal());
+            modal.querySelector('#copyPath').addEventListener('click', () => this.copyPathToClipboard(file.path));
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) this.hideModal();
+            });
+        }
+        
+        // Update modal content
+        const content = modal.querySelector('#modalContent');
+        content.innerHTML = `
+            <div class="space-y-3">
+                <div><strong>Name:</strong> <span class="font-mono">${this.escapeHtml(file.name)}</span></div>
+                <div><strong>Path:</strong> <span class="font-mono text-sm break-all">${this.escapeHtml(file.path)}</span></div>
+                <div><strong>Size:</strong> ${this.formatSize(file.size)}</div>
+                <div><strong>Type:</strong> ${file.type === 'tree' ? '📁 Directory' : '📄 File'}</div>
+                <div><strong>Mode:</strong> <span class="font-mono text-sm">${file.mode}</span></div>
+            </div>
+        `;
+        
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+    }
+
+    hideModal() {
+        const modal = document.getElementById('fileInfoModal');
+        if (modal) {
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+    }
+
+    copyPathToClipboard(path) {
+        navigator.clipboard.writeText(path).then(() => {
+            this.showStatus('Path copied to clipboard!', 'success');
+            setTimeout(() => this.hideModal(), 1000);
+        }).catch(() => {
+            this.showStatus('Failed to copy path', 'error');
+        });
+    }
+
+    escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
     }
 
     exportSVG() {
