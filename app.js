@@ -305,6 +305,10 @@ class RepoDiagram {
                     
                     if (!nodeMap[currentPath]) {
                         const parent = nodeMap[parentPath];
+                        // Ensure parent has children array
+                        if (!parent.children) {
+                            parent.children = [];
+                        }
                         const newNode = {
                             name: part,
                             type: 'tree',
@@ -320,6 +324,11 @@ class RepoDiagram {
             }
 
             const parent = nodeMap[dirPath];
+            // Ensure parent has children array
+            if (!parent.children) {
+                parent.children = [];
+            }
+            
             const node = {
                 name: fileName,
                 type: item.type === 'tree' ? 'tree' : 'blob',
@@ -340,8 +349,10 @@ class RepoDiagram {
         const calculateSize = (node) => {
             if (node.type === 'blob') return node.size;
             let total = 0;
-            for (const child of node.children) {
-                total += calculateSize(child);
+            if (node.children) {
+                for (const child of node.children) {
+                    total += calculateSize(child);
+                }
             }
             node.size = total;
             return total;
@@ -367,7 +378,7 @@ class RepoDiagram {
         const layout = this.calculateLayout(this.repoData, containerWidth, nodeWidth, verticalSpacing, horizontalSpacing);
 
         // Draw connections first (so they appear behind nodes)
-        this.drawConnections(layout, nodeElements);
+        this.drawConnections(layout, nodeElements, nodeWidth);
 
         // Draw nodes
         for (const [id, node] of layout) {
@@ -432,7 +443,7 @@ class RepoDiagram {
         return layout;
     }
 
-    drawConnections(layout, nodeElements) {
+    drawConnections(layout, nodeElements, nodeWidth) {
         const svg = this.connectionsSvg;
         svg.setAttribute('width', '100%');
         svg.setAttribute('height', '100%');
