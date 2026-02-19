@@ -1,0 +1,94 @@
+/* Custom styles */
+.node {
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.node:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+.connector {
+    stroke: #cbd5e1;
+    stroke-width: 2;
+    fill: none;
+    transition: stroke 0.3s ease;
+}
+
+.connector:hover {
+    stroke: #3b82f6;
+    stroke-width: 3;
+}
+
+.node-content {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+}
+
+.node-icon {
+    font-size: 1.5rem;
+    margin-bottom: 0.25rem;
+}
+
+.node-name {
+    font-weight: 600;
+    word-break: break-all;
+}
+
+.node-info {
+    font-size: 0.75rem;
+    opacity: 0.8;
+    margin-top: 0.25rem;
+}
+
+.hidden-node {
+    display: none;
+}
+
+.search-highlight {
+    background-color: #fef08a;
+    padding: 0 2px;
+    border-radius: 2px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .node {
+        padding: 0.5rem !important;
+    }
+    .node-name {
+        font-size: 0.875rem;
+    }
+}
+
+/* Animation for loading */
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+.loading-pulse {
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Status colors */
+.status-success {
+    background-color: #dcfce7;
+    color: #166534;
+    border: 1px solid #bbf7d0;
+}
+
+.status-error {
+    background-color: #fee2e2;
+    color: #991b1b;
+    border: 1px solid #fecaca;
+}
+
+.status-info {
+    background-color: #dbeafe;
+    color: #1e40af;
+    border: 1px solid #bfdbfe;
+}
