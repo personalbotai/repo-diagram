@@ -15,8 +15,21 @@ class RepoDiagram {
         this.focusedNode = null;
         this.nodeTabIndex = 0;
         
+        // Zoom and Pan state
+        this.zoom = 1;
+        this.panX = 0;
+        this.panY = 0;
+        this.isPanMode = false;
+        this.isDragging = false;
+        this.dragStartX = 0;
+        this.dragStartY = 0;
+        
+        // Tab state
+        this.currentTab = 'diagram'; // 'diagram' or 'mermaid'
+        
         this.initElements();
         this.bindEvents();
+        this.initMermaidEditor();
     }
 
     initElements() {
@@ -38,6 +51,32 @@ class RepoDiagram {
         this.statsBar = document.getElementById('statsBar');
         this.darkModeBtn = document.getElementById('darkModeBtn');
         this.controlsBg = document.getElementById('controlsBg');
+        
+        // Tab elements
+        this.tabDiagram = document.getElementById('tabDiagram');
+        this.tabMermaid = document.getElementById('tabMermaid');
+        this.diagramTab = document.getElementById('diagramTab');
+        this.mermaidTab = document.getElementById('mermaidTab');
+        
+        // Zoom elements
+        this.zoomInBtn = document.getElementById('zoomInBtn');
+        this.zoomOutBtn = document.getElementById('zoomOutBtn');
+        this.zoomResetBtn = document.getElementById('zoomResetBtn');
+        this.zoomLevel = document.getElementById('zoomLevel');
+        this.panModeBtn = document.getElementById('panModeBtn');
+        
+        // Mermaid editor elements
+        this.mermaidCode = document.getElementById('mermaidCode');
+        this.mermaidPreview = document.getElementById('mermaidPreview');
+        this.insertGraphBtn = document.getElementById('insertGraphBtn');
+        this.insertFlowchartBtn = document.getElementById('insertFlowchartBtn');
+        this.insertSequenceBtn = document.getElementById('insertSequenceBtn');
+        this.insertClassBtn = document.getElementById('insertClassBtn');
+        this.insertStateBtn = document.getElementById('insertStateBtn');
+        this.insertGanttBtn = document.getElementById('insertGanttBtn');
+        this.clearEditorBtn = document.getElementById('clearEditorBtn');
+        this.exportMermaidBtn = document.getElementById('exportMermaidBtn');
+        this.exportMermaidPNGBtn = document.getElementById('exportMermaidPNGBtn');
     }
 
     bindEvents() {
@@ -67,8 +106,41 @@ class RepoDiagram {
         this.exportPNGBtn.addEventListener('click', () => this.exportPNG());
         this.darkModeBtn.addEventListener('click', () => this.toggleDarkMode());
         
+        // Tab navigation
+        this.tabDiagram.addEventListener('click', () => this.switchTab('diagram'));
+        this.tabMermaid.addEventListener('click', () => this.switchTab('mermaid'));
+        
+        // Zoom controls
+        this.zoomInBtn.addEventListener('click', () => this.setZoom(this.zoom + 0.1));
+        this.zoomOutBtn.addEventListener('click', () => this.setZoom(this.zoom - 0.1));
+        this.zoomResetBtn.addEventListener('click', () => this.resetZoom());
+        this.panModeBtn.addEventListener('click', () => this.togglePanMode());
+        
+        // Pan/drag events
+        this.diagram.addEventListener('mousedown', (e) => this.handleMouseDown(e));
+        window.addEventListener('mousemove', (e) => this.handleMouseMove(e));
+        window.addEventListener('mouseup', () => this.handleMouseUp());
+        this.diagram.addEventListener('wheel', (e) => this.handleWheel(e));
+        
+        // Mermaid editor events
+        this.mermaidCode.addEventListener('input', () => this.updateMermaidPreview());
+        this.insertGraphBtn.addEventListener('click', () => this.insertMermaidTemplate('graph'));
+        this.insertFlowchartBtn.addEventListener('click', () => this.insertMermaidTemplate('flowchart'));
+        this.insertSequenceBtn.addEventListener('click', () => this.insertMermaidTemplate('sequence'));
+        this.insertClassBtn.addEventListener('click', () => this.insertMermaidTemplate('class'));
+        this.insertStateBtn.addEventListener('click', () => this.insertMermaidTemplate('state'));
+        this.insertGanttBtn.addEventListener('click', () => this.insertMermaidTemplate('gantt'));
+        this.clearEditorBtn.addEventListener('click', () => this.clearMermaidEditor());
+        this.exportMermaidBtn.addEventListener('click', () => this.exportMermaidFile());
+        this.exportMermaidPNGBtn.addEventListener('click', () => this.exportMermaidPNG());
+        
         // Keyboard navigation
         document.addEventListener('keydown', (e) => this.handleKeyDown(e));
+        
+        // Window resize
+        window.addEventListener('resize', () => {
+            if (this.repoData) this.render();
+        });
     }
 
     handleKeyDown(e) {
@@ -395,6 +467,9 @@ class RepoDiagram {
             this.nodesContainer.appendChild(element);
             nodeElements.set(id, element);
         }
+        
+        // Apply current zoom/pan transform
+        this.applyTransform();
     }
 
     calculateLayout(root, containerWidth, nodeWidth, verticalSpacing, horizontalSpacing) {
@@ -875,6 +950,275 @@ class RepoDiagram {
                 </svg>
                 Dark Mode
             `;
+        }
+    }
+
+    // Tab Navigation
+    switchTab(tabName) {
+        this.currentTab = tabName;
+        
+        if (tabName === 'diagram') {
+            this.tabDiagram.classList.add('bg-gradient-to-r', 'from-blue-600', 'to-purple-600', 'text-white', 'shadow-md');
+            this.tabDiagram.classList.remove('text-slate-600', 'hover:bg-slate-100');
+            this.tabMermaid.classList.remove('bg-gradient-to-r', 'from-blue-600', 'to-purple-600', 'text-white', 'shadow-md');
+            this.tabMermaid.classList.add('text-slate-600', 'hover:bg-slate-100');
+            this.diagramTab.classList.remove('hidden');
+            this.mermaidTab.classList.add('hidden');
+        } else {
+            this.tabMermaid.classList.add('bg-gradient-to-r', 'from-blue-600', 'to-purple-600', 'text-white', 'shadow-md');
+            this.tabMermaid.classList.remove('text-slate-600', 'hover:bg-slate-100');
+            this.tabDiagram.classList.remove('bg-gradient-to-r', 'from-blue-600', 'to-purple-600', 'text-white', 'shadow-md');
+            this.tabDiagram.classList.add('text-slate-600', 'hover:bg-slate-100');
+            this.mermaidTab.classList.remove('hidden');
+            this.diagramTab.classList.add('hidden');
+        }
+    }
+
+    // Zoom and Pan
+    setZoom(newZoom) {
+        this.zoom = Math.max(0.1, Math.min(3, newZoom));
+        this.updateZoomDisplay();
+        this.applyTransform();
+    }
+
+    resetZoom() {
+        this.zoom = 1;
+        this.panX = 0;
+        this.panY = 0;
+        this.updateZoomDisplay();
+        this.applyTransform();
+    }
+
+    updateZoomDisplay() {
+        this.zoomLevel.textContent = Math.round(this.zoom * 100) + '%';
+    }
+
+    applyTransform() {
+        this.nodesContainer.style.transform = `translate(${this.panX}px, ${this.panY}px) scale(${this.zoom})`;
+        this.connectionsSvg.style.transform = `translate(${this.panX}px, ${this.panY}px) scale(${this.zoom})`;
+        this.connectionsSvg.style.transformOrigin = '0 0';
+    }
+
+    togglePanMode() {
+        this.isPanMode = !this.isPanMode;
+        if (this.isPanMode) {
+            this.panModeBtn.classList.add('bg-blue-100', 'text-blue-700');
+            this.panModeBtn.classList.remove('bg-slate-100', 'text-slate-700');
+            this.diagram.style.cursor = 'grab';
+        } else {
+            this.panModeBtn.classList.remove('bg-blue-100', 'text-blue-700');
+            this.panModeBtn.classList.add('bg-slate-100', 'text-slate-700');
+            this.diagram.style.cursor = 'default';
+        }
+    }
+
+    handleMouseDown(e) {
+        if (!this.isPanMode) return;
+        this.isDragging = true;
+        this.dragStartX = e.clientX - this.panX;
+        this.dragStartY = e.clientY - this.panY;
+        this.diagram.style.cursor = 'grabbing';
+    }
+
+    handleMouseMove(e) {
+        if (!this.isDragging || !this.isPanMode) return;
+        this.panX = e.clientX - this.dragStartX;
+        this.panY = e.clientY - this.dragStartY;
+        this.applyTransform();
+    }
+
+    handleMouseUp() {
+        this.isDragging = false;
+        if (this.isPanMode) {
+            this.diagram.style.cursor = 'grab';
+        }
+    }
+
+    handleWheel(e) {
+        if (!this.isPanMode) return;
+        e.preventDefault();
+        const delta = e.deltaY > 0 ? -0.1 : 0.1;
+        this.setZoom(this.zoom + delta);
+    }
+
+    // Mermaid Editor
+    initMermaidEditor() {
+        // Load Mermaid library dynamically
+        const script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js';
+        script.onload = () => {
+            mermaid.initialize({ 
+                startOnLoad: false,
+                theme: 'default',
+                securityLevel: 'loose',
+            });
+            // Set initial preview if there's code
+            if (this.mermaidCode.value.trim()) {
+                this.updateMermaidPreview();
+            }
+        };
+        document.head.appendChild(script);
+        
+        // Load CodeMirror for syntax highlighting (optional, lightweight version)
+        // We'll use a simple textarea for now to keep it lightweight
+        // Can add CodeMirror later if needed
+    }
+
+    updateMermaidPreview() {
+        const code = this.mermaidCode.value.trim();
+        if (!code) {
+            this.mermaidPreview.innerHTML = '<div class="text-slate-400 text-center py-16">Your diagram preview will appear here</div>';
+            return;
+        }
+
+        // Check if mermaid is loaded
+        if (typeof mermaid === 'undefined') {
+            this.mermaidPreview.innerHTML = '<div class="text-red-500">Mermaid library loading...</div>';
+            return;
+        }
+
+        // Render diagram
+        try {
+            const id = 'mermaid-preview-' + Date.now();
+            const { svg } = mermaid.render(id, code);
+            this.mermaidPreview.innerHTML = svg;
+            
+            // Apply dark mode styling if active
+            if (document.body.classList.contains('dark')) {
+                const svgEl = this.mermaidPreview.querySelector('svg');
+                if (svgEl) {
+                    svgEl.style.filter = 'brightness(0.9)';
+                }
+            }
+        } catch (error) {
+            this.mermaidPreview.innerHTML = `
+                <div class="text-red-500 p-4">
+                    <strong>Render Error:</strong><br>
+                    ${this.escapeHtml(error.message)}
+                </div>
+            `;
+        }
+    }
+
+    insertMermaidTemplate(type) {
+        const templates = {
+            graph: `graph TD
+    A[Start] --> B{Decide}
+    B -->|Yes| C[Do Thing]
+    B -->|No| D[End]
+    C --> D`,
+            flowchart: `flowchart TD
+    Start --> Stop
+    Stop --> End`,
+            sequence: `sequenceDiagram
+    participant User
+    participant System
+    User->>System: Request
+    System-->>User: Response`,
+            class: `classDiagram
+    class Animal {
+        +String name
+        +eat()
+        +move()
+    }
+    class Duck {
+        +quack()
+    }
+    Animal <|-- Duck`,
+            state: `stateDiagram-v2
+    [*] --> Still
+    Still --> [*]
+    Still --> Moving
+    Moving --> Still
+    Moving --> Crash
+    Crash --> [*]`,
+            gantt: `gantt
+    title Project Timeline
+    section Design
+    Design :done, 2024-01-01, 3d
+    section Development
+    Dev :active, 2024-01-04, 5d
+    section Testing
+    Test :2024-01-09, 4d`
+        };
+
+        const template = templates[type];
+        if (template) {
+            this.mermaidCode.value = template;
+            this.updateMermaidPreview();
+            this.mermaidCode.focus();
+        }
+    }
+
+    clearMermaidEditor() {
+        this.mermaidCode.value = '';
+        this.mermaidPreview.innerHTML = '<div class="text-slate-400 text-center py-16">Your diagram preview will appear here</div>';
+    }
+
+    exportMermaidFile() {
+        const code = this.mermaidCode.value;
+        if (!code) {
+            this.showStatus('No Mermaid code to export', 'error');
+            return;
+        }
+
+        const blob = new Blob([code], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'diagram.mmd';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        this.showStatus('Mermaid file exported!', 'success');
+    }
+
+    exportMermaidPNG() {
+        const code = this.mermaidCode.value;
+        if (!code) {
+            this.showStatus('No Mermaid code to export', 'error');
+            return;
+        }
+
+        try {
+            // Render to SVG first
+            const id = 'mermaid-export-' + Date.now();
+            mermaid.render(id, code).then(({ svg }) => {
+                // Convert SVG to PNG
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                const img = new Image();
+                const svgBlob = new Blob([svg], { type: 'image/svg+xml' });
+                const url = URL.createObjectURL(svgBlob);
+                
+                img.onload = () => {
+                    canvas.width = img.width;
+                    canvas.height = img.height;
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    ctx.drawImage(img, 0, 0);
+                    
+                    canvas.toBlob((blob) => {
+                        const pngUrl = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = pngUrl;
+                        a.download = 'diagram.png';
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(pngUrl);
+                        this.showStatus('PNG exported!', 'success');
+                    }, 'image/png');
+                    
+                    URL.revokeObjectURL(url);
+                };
+                
+                img.src = url;
+            });
+        } catch (error) {
+            this.showStatus('Export failed: ' + error.message, 'error');
         }
     }
 }

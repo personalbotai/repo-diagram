@@ -147,3 +147,107 @@
 #nodes::-webkit-scrollbar-thumb:hover {
     background: #94a3b8;
 }
+
+/* Tab styles */
+.tab-panel {
+    animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Glassmorphism enhancements */
+#controlsBg {
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* Smooth transitions for interactive elements */
+button {
+    transition: all 0.2s ease;
+}
+
+input, select, textarea {
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* Dark mode styles */
+.dark .bg-white {
+    background-color: #1e293b !important;
+    color: #e2e8f0;
+    border-color: #334155;
+}
+
+.dark .text-slate-600 {
+    color: #cbd5e1 !important;
+}
+
+.dark .text-slate-700 {
+    color: #e2e8f0 !important;
+}
+
+.dark .text-slate-500 {
+    color: #94a3b8 !important;
+}
+
+.dark .border-slate-300 {
+    border-color: #475569 !important;
+}
+
+.dark #controlsBg {
+    background-color: rgba(30, 41, 59, 0.8);
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+.dark .connector {
+    stroke: #475569;
+}
+
+.dark .search-highlight {
+    background-color: #854d0e;
+    color: #fef08a;
+}
+
+/* Mermaid editor dark mode */
+.dark #mermaidPreview {
+    background-color: #0f172a;
+    border-color: #334155;
+}
+
+.dark .node-name {
+    color: #e2e8f0;
+}
+
+/* Zoom controls */
+#zoomLevel {
+    font-variant-numeric: tabular-nums;
+}
+
+/* Pan mode indicator */
+.pan-mode-active {
+    position: relative;
+}
+
+.pan-mode-active::after {
+    content: 'Pan Mode';
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: rgba(59, 130, 246, 0.9);
+    color: white;
+    padding: 4px 12px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 600;
+    z-index: 100;
+    animation: fadeIn 0.3s ease;
+}
+
+/* Smooth zoom transitions */
+#nodes, #connections {
+    transition: transform 0.1s ease-out;
+    will-change: transform;
+}
