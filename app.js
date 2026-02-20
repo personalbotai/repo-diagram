@@ -412,77 +412,58 @@ class RepoDiagram {
         }
     }
 
-                    this.currentBranch = firstRealBranch.value;
-                }
-            }
-            
-            console.log(`Loaded ${branches.length} branches for ${repo}`);
-        } catch (error) {
-            console.warn('Error fetching branches:', error);
-        }
-    }
-
-    getFromCache(key) {
-        const cached = this.cache.get(key);
-        if (!cached) return null;
-        
-        const now = Date.now();
-        if (now - cached.timestamp > this.cacheTimeout) {
-            this.cache.delete(key);
-            return null;
-        }
-        
-        return cached.data;
-    }
-
-    setInCache(key, data) {
-        this.cache.set(key, {
-            data,
-            timestamp: Date.now()
-        });
-    }
-
-    buildTree(flatTree, repoPath) {
+    buildTree(treeData, repo) {
+        // Create root node
         const root = {
-            name: repoPath.split('/')[1],
+            name: repo,
             type: 'tree',
             path: '',
             children: [],
             size: 0,
             mode: '040000'
         };
-
+        
         const nodeMap = { '': root };
-
-        for (const item of flatTree) {
-            const pathParts = item.path.split('/');
-            const fileName = pathParts[pathParts.length - 1];
-            const dirPath = pathParts.slice(0, -1).join('/');
-
-            // Ensure parent exists
-            if (!nodeMap[dirPath]) {
-                let currentPath = '';
-                for (const part of pathParts.slice(0, -1)) {
-                    const parentPath = currentPath;
-                    currentPath = currentPath ? `${currentPath}/${part}` : part;
-                    
-                    if (!nodeMap[currentPath]) {
-                        const parent = nodeMap[parentPath];
-                        // Ensure parent has children array
-                        if (!parent.children) {
-                            parent.children = [];
-                        }
-                        const newNode = {
-                            name: part,
-                            type: 'tree',
-                            path: currentPath,
-                            children: [],
-                            size: 0,
-                            mode: '040000'
-                        };
-                        parent.children.push(newNode);
-                        nodeMap[currentPath] = newNode;
+        
+        // Sort tree items: directories first, then files, both alphabetically
+        const sortedItems = [...treeData].sort((a, b) => {
+            // Directories (trees) come before files (blobs)
+            if (a.type !== b.type) {
+                return a.type === 'tree' ? -1 : 1;
+            }
+            // Alphabetical within same type
+            return a.path.localeCompare(b.path);
+        });
+        
+        for (const item of sortedItems) {
+            const path = item.path;
+            const parts = path.split('/');
+            const fileName = parts[parts.length - 1];
+            const dirPath = parts.slice(0, -1).join('/');
+            
+            // Ensure all parent directories exist
+            let currentPath = '';
+            for (let i = 0; i < parts.length - 1; i++) {
+                const part = parts[i];
+                const parentPath = currentPath;
+                currentPath = currentPath ? `${currentPath}/${part}` : part;
+                
+                if (!nodeMap[currentPath]) {
+                    const parent = nodeMap[parentPath];
+                    // Ensure parent has children array
+                    if (!parent.children) {
+                        parent.children = [];
                     }
+                    const newNode = {
+                        name: part,
+                        type: 'tree',
+                        path: currentPath,
+                        children: [],
+                        size: 0,
+                        mode: '040000'
+                    };
+                    parent.children.push(newNode);
+                    nodeMap[currentPath] = newNode;
                 }
             }
 
