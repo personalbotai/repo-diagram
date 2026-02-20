@@ -32,6 +32,28 @@ class RepoDiagram {
         this.initMermaidEditor();
     }
 
+    // Cache management
+    getFromCache(key) {
+        const cached = this.cache.get(key);
+        if (!cached) return null;
+        
+        const { data, timestamp } = cached;
+        const now = Date.now();
+        if (now - timestamp > this.cacheTimeout) {
+            this.cache.delete(key);
+            return null;
+        }
+        
+        return data;
+    }
+
+    setInCache(key, data) {
+        this.cache.set(key, {
+            data,
+            timestamp: Date.now()
+        });
+    }
+
     initElements() {
         this.repoInput = document.getElementById('repoInput');
         this.branchSelect = document.getElementById('branchSelect');
