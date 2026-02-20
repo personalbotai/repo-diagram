@@ -120,8 +120,8 @@ class RepoDiagram {
         this.tabMermaid.addEventListener('click', () => this.switchTab('mermaid'));
         
         // Zoom controls
-        this.zoomInBtn.addEventListener('click', () => this.setZoom(this.zoom + 0.1));
-        this.zoomOutBtn.addEventListener('click', () => this.setZoom(this.zoom - 0.1));
+        this.zoomInBtn.addEventListener('click', () => this.setZoom(this.zoom + 0.1, null));
+        this.zoomOutBtn.addEventListener('click', () => this.setZoom(this.zoom - 0.1, null));
         this.zoomResetBtn.addEventListener('click', () => this.resetZoom());
         this.panModeBtn.addEventListener('click', () => this.togglePanMode());
         
@@ -1194,8 +1194,36 @@ class RepoDiagram {
     }
 
     // Zoom and Pan
-    setZoom(newZoom) {
+    setZoom(newZoom, center) {
+        const oldZoom = this.zoom;
         this.zoom = Math.max(0.1, Math.min(3, newZoom));
+        
+        // Adjust pan to zoom towards the specified center point (or container center by default)
+        if (center) {
+            const rect = this.diagram.getBoundingClientRect();
+            const cx = center.x - rect.left; // relative to container
+            const cy = center.y - rect.top;
+            
+            // Convert viewport point to world coordinates before zoom
+            const worldX = (cx - this.panX) / oldZoom;
+            const worldY = (cy - this.panY) / oldZoom;
+            
+            // Adjust pan so that the world point stays at the same viewport position
+            this.panX = cx - worldX * this.zoom;
+            this.panY = cy - worldY * this.zoom;
+        } else {
+            // Default: zoom towards center of container
+            const rect = this.diagram.getBoundingClientRect();
+            const cx = rect.width / 2;
+            const cy = rect.height / 2;
+            
+            const worldX = (cx - this.panX) / oldZoom;
+            const worldY = (cy - this.panY) / oldZoom;
+            
+            this.panX = cx - worldX * this.zoom;
+            this.panY = cy - worldY * this.zoom;
+        }
+        
         this.updateZoomDisplay();
         this.applyTransform();
     }
@@ -1292,7 +1320,7 @@ class RepoDiagram {
         if (!this.isPanMode) return;
         e.preventDefault();
         const delta = e.deltaY > 0 ? -0.1 : 0.1;
-        this.setZoom(this.zoom + delta);
+        this.setZoom(this.zoom + delta, e);
     }
 
     // Mermaid Editor
