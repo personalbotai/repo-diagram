@@ -27,6 +27,54 @@ class RepoDiagram {
         // Tab state
         this.currentTab = 'diagram'; // 'diagram' or 'mermaid'
         
+        // Icon mapping for file extensions
+        this.iconMap = {
+            // Programming languages
+            'js': '🟨', 'jsx': '🟨', 'ts': '🔵', 'tsx': '🔵',
+            'go': '🔵', 'py': '🐍', 'java': '☕', 'rb': '💎', 'php': '🐘',
+            'cs': '🔷', 'cpp': '🔶', 'c': '⚙️', 'h': '⚙️', 'swift': '🍎',
+            'kt': '🎯', 'rs': '⚡', 'scala': '🔺', 'm': '📱', 'r': '📊',
+            
+            // Web
+            'html': '🌐', 'htm': '🌐', 'css': '🎨', 'scss': '🎨', 'sass': '🎨',
+            'less': '🎨', 'vue': '💚', 'svelte': '🔥', 'angular': '🅰️',
+            
+            // Data/Config
+            'json': '📋', 'yaml': '📝', 'yml': '📝', 'toml': '📄', 'ini': '📄',
+            'xml': '📄', 'csv': '📊', 'sql': '🗄️', 'graphql': '◆',
+            
+            // Documents
+            'md': '📖', 'markdown': '📖', 'txt': '📄', 'pdf': '📕', 'doc': '📘',
+            'docx': '📘', 'rtf': '📄', 'odt': '📄',
+            
+            // Images
+            'png': '🖼️', 'jpg': '🖼️', 'jpeg': '🖼️', 'gif': '🖼️', 'svg': '🎨',
+            'webp': '🖼️', 'ico': '🖼️', 'bmp': '🖼️', 'tiff': '🖼️',
+            
+            // Media
+            'mp3': '🎵', 'wav': '🎵', 'flac': '🎵', 'mp4': '🎬', 'avi': '🎬',
+            'mov': '🎬', 'mkv': '🎬', 'webm': '🎬', 'm4a': '🎵',
+            
+            // Archives
+            'zip': '📦', 'tar': '📦', 'gz': '📦', 'rar': '📦', '7z': '📦',
+            'bz2': '📦', 'xz': '📦',
+            
+            // Shell/Scripts
+            'sh': '💻', 'bash': '💻', 'zsh': '💻', 'fish': '💻', 'ps1': '💻',
+            'bat': '💻', 'cmd': '💻', 'ps': '💻',
+            
+            // Specialized
+            'dockerfile': '🐳', 'makefile': '🛠️', 'cmake': '🛠️',
+            'gradle': '🛠️', 'maven': '🛠️', 'npm': '📦', 'yarn': '📦',
+            'pip': '🐍', 'requirements': '🐍', 'env': '🔒', 'gitignore': '🚫',
+            'gitattributes': '⚙️', 'editorconfig': '⚙️', 'eslintrc': '🔍',
+            'prettierrc': '💅', 'tsconfig': '🔵', 'jsconfig': '🟨',
+            
+            // License/Config
+            'license': '⚖️', 'readme': '📖', 'contributing': '🤝',
+            'changelog': '📜', 'todo': '✅', 'fixme': '🔧',
+        };
+        
         this.initElements();
         this.bindEvents();
         this.initMermaidEditor();
@@ -668,8 +716,8 @@ class RepoDiagram {
         }
         container.classList.add(borderColor);
 
-        // Icon based on type
-        const icon = node.type === 'tree' ? '📁' : '📄';
+        // Icon based on type and file extension
+        const icon = this.getFileIcon(node);
         const isDirectory = node.type === 'tree';
 
         // File count for directories
@@ -779,6 +827,22 @@ class RepoDiagram {
         if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
         if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
         return (bytes / (1024 * 1024 * 1024)).toFixed(1) + ' GB';
+    }
+
+    getFileExtension(filename) {
+        const parts = filename.split('.');
+        return parts.length > 1 ? parts[parts.length - 1] : '';
+    }
+
+    getFileIcon(node) {
+        if (node.type === 'tree') return '📁';
+        const ext = this.getFileExtension(node.name).toLowerCase();
+        return this.iconMap[ext] || '📄';
+    }
+
+    getIconForFilename(filename) {
+        const ext = this.getFileExtension(filename).toLowerCase();
+        return this.iconMap[ext] || '📄';
     }
 
     showStatus(message, type) {
@@ -975,7 +1039,7 @@ class RepoDiagram {
             group.appendChild(rect);
             
             // Icon (emoji as text)
-            const icon = type === 'tree' ? '📁' : '📄';
+            const icon = this.getFileIcon(node);
             const iconText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
             iconText.setAttribute('x', x + nodeWidth / 2);
             iconText.setAttribute('y', y + 25);
@@ -1027,42 +1091,49 @@ class RepoDiagram {
             return;
         }
 
-        const { width, height } = this.exportBounds;
+        // Use the same SVG generation logic as exportSVG
+        const { x: minX, y: minY, width, height } = this.exportBounds;
         const nodeWidth = 180;
         const nodeHeight = 80;
         const isDark = document.body.classList.contains('dark');
 
-        // Create a canvas
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        canvas.width = width;
-        canvas.height = height;
+        // Create SVG (same as exportSVG but without immediate export)
+        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.setAttribute('width', width);
+        svg.setAttribute('height', height);
+        svg.setAttribute('viewBox', `${minX} ${minY} ${width} ${height}`);
+        svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
 
-        // Background color based on theme
-        ctx.fillStyle = isDark ? '#0f172a' : '#ffffff';
-        ctx.fillRect(0, 0, width, height);
+        // Background
+        const bgRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        bgRect.setAttribute('x', minX);
+        bgRect.setAttribute('y', minY);
+        bgRect.setAttribute('width', width);
+        bgRect.setAttribute('height', height);
+        bgRect.setAttribute('fill', isDark ? '#0f172a' : '#ffffff');
+        svg.appendChild(bgRect);
 
         // Draw connections (lines)
         const connLines = this.connectionsSvg.querySelectorAll('line');
-        ctx.strokeStyle = isDark ? '#475569' : '#94a3b8';
-        ctx.lineWidth = 2;
         connLines.forEach(line => {
             const x1 = parseFloat(line.getAttribute('x1'));
             const y1 = parseFloat(line.getAttribute('y1'));
             const x2 = parseFloat(line.getAttribute('x2'));
             const y2 = parseFloat(line.getAttribute('y2'));
-            ctx.beginPath();
-            ctx.moveTo(x1, y1);
-            ctx.lineTo(x2, y2);
-            ctx.stroke();
+            
+            const path = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            path.setAttribute('x1', x1);
+            path.setAttribute('y1', y1);
+            path.setAttribute('x2', x2);
+            path.setAttribute('y2', y2);
+            path.setAttribute('stroke', isDark ? '#475569' : '#94a3b8');
+            path.setAttribute('stroke-width', '2');
+            path.setAttribute('stroke-linecap', 'round');
+            svg.appendChild(path);
         });
 
-        // Draw nodes
+        // Draw nodes as SVG groups
         const nodeElements = this.nodesContainer.querySelectorAll('.node');
-        ctx.font = '14px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-
         nodeElements.forEach(node => {
             const x = parseFloat(node.style.left);
             const y = parseFloat(node.style.top);
@@ -1070,41 +1141,104 @@ class RepoDiagram {
             const nameEl = node.querySelector('.node-name');
             const name = nameEl ? nameEl.textContent : 'Unknown';
             
-            // Node background
-            ctx.fillStyle = isDark ? '#1e293b' : '#ffffff';
-            ctx.strokeStyle = type === 'tree' ? (isDark ? '#3b82f6' : '#3b82f6') : (isDark ? '#94a3b8' : '#94a3b8');
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.roundRect(x, y, nodeWidth, nodeHeight, 8);
-            ctx.fill();
-            ctx.stroke();
-
-            // Icon
-            const icon = type === 'tree' ? '📁' : '📄';
-            ctx.font = '24px sans-serif';
-            ctx.fillStyle = isDark ? '#e2e8f0' : '#1e293b';
-            ctx.fillText(icon, x + nodeWidth / 2, y + 25);
-
+            const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+            
+            // Node background (rectangle)
+            const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+            rect.setAttribute('x', x);
+            rect.setAttribute('y', y);
+            rect.setAttribute('width', nodeWidth);
+            rect.setAttribute('height', nodeHeight);
+            rect.setAttribute('rx', '8');
+            rect.setAttribute('fill', isDark ? '#1e293b' : '#ffffff');
+            rect.setAttribute('stroke', type === 'tree' ? '#3b82f6' : (isDark ? '#94a3b8' : '#94a3b8'));
+            rect.setAttribute('stroke-width', '2');
+            group.appendChild(rect);
+            
+            // Icon (emoji as text)
+            const icon = type === 'tree' ? '📁' : this.getFileIcon(node);
+            const iconText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            iconText.setAttribute('x', x + nodeWidth / 2);
+            iconText.setAttribute('y', y + 25);
+            iconText.setAttribute('text-anchor', 'middle');
+            iconText.setAttribute('font-size', '24px');
+            iconText.setAttribute('fill', isDark ? '#e2e8f0' : '#1e293b');
+            iconText.textContent = icon;
+            group.appendChild(iconText);
+            
             // Name
-            ctx.font = 'bold 12px sans-serif';
-            ctx.fillStyle = isDark ? '#e2e8f0' : '#1e293b';
+            const nameText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            nameText.setAttribute('x', x + nodeWidth / 2);
+            nameText.setAttribute('y', y + 55);
+            nameText.setAttribute('text-anchor', 'middle');
+            nameText.setAttribute('font-size', '12px');
+            nameText.setAttribute('font-weight', 'bold');
+            nameText.setAttribute('fill', isDark ? '#e2e8f0' : '#1e293b');
+            // Truncate name if too long
             const maxChars = 20;
-            const displayName = name.length > maxChars ? name.substring(0, maxChars - 2) + '...' : name;
-            ctx.fillText(displayName, x + nodeWidth / 2, y + 55);
+            if (name.length > maxChars) {
+                nameText.textContent = name.substring(0, maxChars - 2) + '...';
+            } else {
+                nameText.textContent = name;
+            }
+            group.appendChild(nameText);
+            
+            svg.appendChild(group);
         });
 
-        // Convert to PNG and download
-        canvas.toBlob((blob) => {
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `${this.currentRepo.replace('/', '-')}-diagram.png`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
+        // Convert SVG to PNG using canvas
+        this.svgToPng(svg, width, height);
+    }
+
+    getFileIcon(node) {
+        if (node.type === 'tree') return '📁';
+        const ext = this.getFileExtension(node.name).toLowerCase();
+        return this.iconMap[ext] || '📄';
+    }
+
+    svgToPng(svgElement, width, height) {
+        // Serialize SVG to string
+        const svgData = new XMLSerializer().serializeToString(svgElement);
+        
+        // Create a canvas
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        
+        // Create an image from SVG data
+        const img = new Image();
+        const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+        const url = URL.createObjectURL(svgBlob);
+        
+        img.onload = () => {
+            // Draw white background
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, width, height);
+            // Draw SVG image
+            ctx.drawImage(img, 0, 0, width, height);
+            
+            // Convert to PNG and download
+            canvas.toBlob((blob) => {
+                const pngUrl = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = pngUrl;
+                a.download = `${this.currentRepo.replace('/', '-')}-diagram.png`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(pngUrl);
+                this.showStatus('PNG exported!', 'success');
+            }, 'image/png');
+            
             URL.revokeObjectURL(url);
-            this.showStatus('PNG exported!', 'success');
-        }, 'image/png');
+        };
+        
+        img.onerror = () => {
+            this.showStatus('Failed to generate PNG', 'error');
+        };
+        
+        img.src = url;
     }
 
     toggleDarkMode() {
