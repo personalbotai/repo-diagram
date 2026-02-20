@@ -412,57 +412,6 @@ class RepoDiagram {
         }
     }
 
-    async fetchBranches(repo) {
-        const [owner, name] = repo.split('/');
-        try {
-            const response = await fetch(`https://api.github.com/repos/${owner}/${name}/branches`, {
-                headers: {
-                    'Accept': 'application/vnd.github.v3+json'
-                }
-            });
-            
-            if (!response.ok) {
-                console.warn('Failed to fetch branches:', response.status);
-                return; // Don't throw - just skip branch dropdown
-            }
-            
-            const branches = await response.json();
-            const branchSelect = this.branchSelect;
-            branchSelect.innerHTML = '<option value="">Auto-detect (default: main)</option>';
-            
-            // Add common default branches first
-            const defaultBranches = ['main', 'master', 'develop', 'dev'];
-            const addedBranches = new Set();
-            
-            // Add defaults if they exist
-            for (const defBranch of defaultBranches) {
-                if (branches.some(b => b.name === defBranch)) {
-                    const option = document.createElement('option');
-                    option.value = defBranch;
-                    option.textContent = defBranch;
-                    branchSelect.appendChild(option);
-                    addedBranches.add(defBranch);
-                }
-            }
-            
-            // Add all other branches
-            for (const branch of branches) {
-                if (!addedBranches.has(branch.name)) {
-                    const option = document.createElement('option');
-                    option.value = branch.name;
-                    option.textContent = branch.name;
-                    branchSelect.appendChild(option);
-                }
-            }
-            
-            // Set current branch if it exists in the list
-            if (this.currentBranch && Array.from(branchSelect.options).some(opt => opt.value === this.currentBranch)) {
-                branchSelect.value = this.currentBranch;
-            } else if (branches.length > 0) {
-                // Select first branch that's not "Auto-detect"
-                const firstRealBranch = Array.from(branchSelect.options).find(opt => opt.value && opt.value !== '');
-                if (firstRealBranch) {
-                    branchSelect.value = firstRealBranch.value;
                     this.currentBranch = firstRealBranch.value;
                 }
             }
