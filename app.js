@@ -1604,7 +1604,5 @@ class RepoDiagram {
     }
 }
 
-// Initialize app when DOM is ready
-document.addEventListener('DOMContentLoaded', () => {
-    window.app = new RepoDiagram();
-});
+// Initialize app immediately (script is at end of body, DOM is ready)
+window.app = new RepoDiagram();
