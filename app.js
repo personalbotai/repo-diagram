@@ -27,6 +27,9 @@ class RepoDiagram {
         // Tab state
         this.currentTab = 'diagram'; // 'diagram' or 'mermaid'
         
+        // Layout state
+        this.currentLayout = 'tree'; // 'tree', 'horizontal', 'radial'
+        
         // Icon mapping for file extensions
         this.iconMap = {
             // Programming languages
@@ -75,6 +78,10 @@ class RepoDiagram {
             'changelog': '📜', 'todo': '✅', 'fixme': '🔧',
         };
         
+        // Dimensions
+        this.nodeWidth = 180;
+        this.nodeHeight = 90; // Increased for better content fit
+        
         this.initElements();
         this.bindEvents();
         this.initMermaidEditor();
@@ -112,6 +119,7 @@ class RepoDiagram {
         this.exportPNGBtn = document.getElementById('exportPNGBtn');
         this.searchInput = document.getElementById('searchInput');
         this.depthSelect = document.getElementById('depthSelect');
+        this.layoutSelect = document.getElementById('layoutSelect');
         this.diagram = document.getElementById('diagram');
         this.nodesContainer = document.getElementById('nodes');
         this.connectionsSvg = document.getElementById('connections');
@@ -169,6 +177,10 @@ class RepoDiagram {
         });
         this.depthSelect.addEventListener('change', (e) => {
             this.maxDepth = parseInt(e.target.value);
+            this.render();
+        });
+        this.layoutSelect.addEventListener('change', (e) => {
+            this.currentLayout = e.target.value;
             this.render();
         });
         this.expandAllBtn.addEventListener('click', () => {
@@ -583,7 +595,7 @@ class RepoDiagram {
         if (!this.repoData) return;
 
         const containerWidth = this.diagram.clientWidth;
-        const nodeWidth = 180;
+        const nodeWidth = this.nodeWidth;
         const verticalSpacing = 120;
         const horizontalSpacing = 40;
 
@@ -652,7 +664,25 @@ class RepoDiagram {
 
         collectNodes(root, 0, null, 0);
 
-        // Calculate positions
+        // Calculate positions based on layout type
+        switch (this.currentLayout) {
+            case 'horizontal':
+                this.calculateHorizontalLayout(layout, levelNodes, containerWidth, nodeWidth, verticalSpacing, horizontalSpacing);
+                break;
+            case 'radial':
+                this.calculateRadialLayout(layout, levelNodes, root, containerWidth, nodeWidth);
+                break;
+            case 'tree':
+            default:
+                this.calculateTreeLayout(layout, levelNodes, containerWidth, nodeWidth, verticalSpacing, horizontalSpacing);
+                break;
+        }
+
+        return layout;
+    }
+
+    calculateTreeLayout(layout, levelNodes, containerWidth, nodeWidth, verticalSpacing, horizontalSpacing) {
+        // Original tree layout (vertical)
         for (const [level, nodes] of levelNodes) {
             const totalWidth = nodes.length * (nodeWidth + horizontalSpacing) - horizontalSpacing;
             let startX = (containerWidth - totalWidth) / 2;
@@ -664,8 +694,50 @@ class RepoDiagram {
                 layout.set(id, { node, x, y, level });
             }
         }
+    }
 
-        return layout;
+    calculateHorizontalLayout(layout, levelNodes, containerWidth, nodeWidth, verticalSpacing, horizontalSpacing) {
+        // Horizontal layout: root on left, children expand to the right
+        const levelHeight = 100; // Fixed height for each level
+        
+        for (const [level, nodes] of levelNodes) {
+            const totalHeight = nodes.length * (levelHeight + verticalSpacing) - verticalSpacing;
+            let startY = (containerWidth - totalHeight) / 2; // Use containerWidth as approximation for height
+            
+            for (let i = 0; i < nodes.length; i++) {
+                const { node, id } = nodes[i];
+                const x = level * (nodeWidth + horizontalSpacing) + 50;
+                const y = startY + i * (levelHeight + verticalSpacing);
+                layout.set(id, { node, x, y, level });
+            }
+        }
+    }
+
+    calculateRadialLayout(layout, levelNodes, root, containerWidth, nodeWidth) {
+        // Radial layout: root at center, children radiate outward
+        const centerX = containerWidth / 2;
+        const centerY = 400; // Fixed center Y (can be made dynamic)
+        const maxRadius = Math.min(containerWidth, 800) / 2 - 100;
+        
+        // Get max depth
+        let maxDepth = 0;
+        for (const [level] of levelNodes) {
+            maxDepth = Math.max(maxDepth, level);
+        }
+        if (maxDepth === 0) maxDepth = 1;
+
+        for (const [level, nodes] of levelNodes) {
+            const radius = (level / maxDepth) * maxRadius;
+            const angleStep = (2 * Math.PI) / nodes.length;
+            
+            for (let i = 0; i < nodes.length; i++) {
+                const { node, id } = nodes[i];
+                const angle = i * angleStep - Math.PI / 2; // Start from top
+                const x = centerX + radius * Math.cos(angle) - nodeWidth / 2;
+                const y = centerY + radius * Math.sin(angle) - 40; // Adjust for node height
+                layout.set(id, { node, x, y, level });
+            }
+        }
     }
 
     drawConnections(layout, nodeElements, nodeWidth) {
@@ -683,7 +755,7 @@ class RepoDiagram {
                 if (parentLayout) {
                     const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
                     line.setAttribute('x1', parentLayout.x + nodeWidth / 2);
-                    line.setAttribute('y1', parentLayout.y + 50);
+                    line.setAttribute('y1', parentLayout.y + this.nodeHeight);
                     line.setAttribute('x2', x + nodeWidth / 2);
                     line.setAttribute('y2', y);
                     line.setAttribute('class', 'connector');
@@ -695,16 +767,19 @@ class RepoDiagram {
 
     createNodeElement(node, root) {
         const container = document.createElement('div');
-        container.className = 'node bg-white rounded-xl shadow-md p-4 border-2';
+        container.className = 'node glass rounded-xl shadow-md p-4 border-2';
         container.setAttribute('tabindex', '0');
         container.setAttribute('role', 'treeitem');
         container.setAttribute('aria-label', `${node.type === 'tree' ? 'Folder' : 'File'}: ${node.name || 'Unknown'}`);
         container.setAttribute('aria-expanded', node.type === 'tree' ? (this.expanded.has(node.path || 'root') ? 'true' : 'false') : 'null');
         container.dataset.path = node.path || 'root';
         container.dataset.type = node.type || 'blob';
+        
+        // Add level attribute for staggered animations
+        const level = node.path ? node.path.split('/').length : 0;
+        container.dataset.level = level;
 
         // Set border color based on type and level
-        const level = node.path ? node.path.split('/').length : 0;
         let borderColor;
         if (node.path === '' || node.path === 'root') {
             borderColor = 'border-blue-500';
@@ -976,8 +1051,8 @@ class RepoDiagram {
         }
 
         const { x: minX, y: minY, width, height } = this.exportBounds;
-        const nodeWidth = 180;
-        const nodeHeight = 80;
+        const nodeWidth = this.nodeWidth;
+        const nodeHeight = this.nodeHeight;
         const isDark = document.body.classList.contains('dark');
 
         // Create SVG
@@ -1026,23 +1101,47 @@ class RepoDiagram {
             
             const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
             
-            // Node background (rectangle)
+            // Node background (rectangle with glass effect)
             const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
             rect.setAttribute('x', x);
             rect.setAttribute('y', y);
             rect.setAttribute('width', nodeWidth);
             rect.setAttribute('height', nodeHeight);
-            rect.setAttribute('rx', '8');
-            rect.setAttribute('fill', isDark ? '#1e293b' : '#ffffff');
-            rect.setAttribute('stroke', type === 'tree' ? '#3b82f6' : (isDark ? '#94a3b8' : '#94a3b8'));
+            rect.setAttribute('rx', '12');
+            rect.setAttribute('fill', isDark ? 'rgba(30, 41, 59, 0.9)' : 'rgba(255, 255, 255, 0.85)');
+            rect.setAttribute('stroke', type === 'tree' ? '#3b82f6' : (isDark ? '#64748b' : '#94a3b8'));
             rect.setAttribute('stroke-width', '2');
+            // Add subtle glass highlight
+            if (!isDark) {
+                const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+                const filter = document.createElementNS('http://www.w3.org/2000/svg', 'filter');
+                filter.setAttribute('id', 'glassHighlight');
+                const feGaussianBlur = document.createElementNS('http://www.w3.org/2000/svg', 'feGaussianBlur');
+                feGaussianBlur.setAttribute('in', 'SourceAlpha');
+                feGaussianBlur.setAttribute('stdDeviation', '3');
+                const feOffset = document.createElementNS('http://www.w3.org/2000/svg', 'feOffset');
+                feOffset.setAttribute('dx', '0');
+                feOffset.setAttribute('dy', '2');
+                const feComponentTransfer = document.createElementNS('http://www.w3.org/2000/svg', 'feComponentTransfer');
+                const feFuncA = document.createElementNS('http://www.w3.org/2000/svg', 'feFuncA');
+                feFuncA.setAttribute('type', 'table');
+                const feTable = document.createElementNS('http://www.w3.org/2000/svg', 'feFuncA');
+                // Simple shadow
+                filter.appendChild(feGaussianBlur);
+                filter.appendChild(feOffset);
+                defs.appendChild(filter);
+                if (!svg.querySelector('defs')) {
+                    svg.appendChild(defs);
+                }
+                rect.setAttribute('filter', 'url(#glassHighlight)');
+            }
             group.appendChild(rect);
             
             // Icon (emoji as text)
             const icon = this.getFileIcon(node);
             const iconText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
             iconText.setAttribute('x', x + nodeWidth / 2);
-            iconText.setAttribute('y', y + 25);
+            iconText.setAttribute('y', y + 28);
             iconText.setAttribute('text-anchor', 'middle');
             iconText.setAttribute('font-size', '24px');
             iconText.setAttribute('fill', isDark ? '#e2e8f0' : '#1e293b');
@@ -1052,19 +1151,32 @@ class RepoDiagram {
             // Name
             const nameText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
             nameText.setAttribute('x', x + nodeWidth / 2);
-            nameText.setAttribute('y', y + 55);
+            nameText.setAttribute('y', y + 58);
             nameText.setAttribute('text-anchor', 'middle');
-            nameText.setAttribute('font-size', '12px');
+            nameText.setAttribute('font-size', '11px');
             nameText.setAttribute('font-weight', 'bold');
             nameText.setAttribute('fill', isDark ? '#e2e8f0' : '#1e293b');
             // Truncate name if too long
-            const maxChars = 20;
+            const maxChars = 18;
             if (name.length > maxChars) {
                 nameText.textContent = name.substring(0, maxChars - 2) + '...';
             } else {
                 nameText.textContent = name;
             }
             group.appendChild(nameText);
+            
+            // File count for directories (small text)
+            if (type === 'tree') {
+                const fileCount = this.countFiles(node);
+                const countText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                countText.setAttribute('x', x + nodeWidth / 2);
+                countText.setAttribute('y', y + nodeHeight - 8);
+                countText.setAttribute('text-anchor', 'middle');
+                countText.setAttribute('font-size', '9px');
+                countText.setAttribute('fill', isDark ? '#94a3b8' : '#64748b');
+                countText.textContent = `${fileCount} items`;
+                group.appendChild(countText);
+            }
             
             svg.appendChild(group);
         });
@@ -1091,10 +1203,9 @@ class RepoDiagram {
             return;
         }
 
-        // Use the same SVG generation logic as exportSVG
         const { x: minX, y: minY, width, height } = this.exportBounds;
-        const nodeWidth = 180;
-        const nodeHeight = 80;
+        const nodeWidth = this.nodeWidth;
+        const nodeHeight = this.nodeHeight;
         const isDark = document.body.classList.contains('dark');
 
         // Create SVG (same as exportSVG but without immediate export)
@@ -1143,23 +1254,23 @@ class RepoDiagram {
             
             const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
             
-            // Node background (rectangle)
+            // Node background (rectangle with glass effect)
             const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
             rect.setAttribute('x', x);
             rect.setAttribute('y', y);
             rect.setAttribute('width', nodeWidth);
             rect.setAttribute('height', nodeHeight);
-            rect.setAttribute('rx', '8');
-            rect.setAttribute('fill', isDark ? '#1e293b' : '#ffffff');
-            rect.setAttribute('stroke', type === 'tree' ? '#3b82f6' : (isDark ? '#94a3b8' : '#94a3b8'));
+            rect.setAttribute('rx', '12');
+            rect.setAttribute('fill', isDark ? 'rgba(30, 41, 59, 0.9)' : 'rgba(255, 255, 255, 0.85)');
+            rect.setAttribute('stroke', type === 'tree' ? '#3b82f6' : (isDark ? '#64748b' : '#94a3b8'));
             rect.setAttribute('stroke-width', '2');
             group.appendChild(rect);
             
             // Icon (emoji as text)
-            const icon = type === 'tree' ? '📁' : this.getFileIcon(node);
+            const icon = this.getFileIcon(node);
             const iconText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
             iconText.setAttribute('x', x + nodeWidth / 2);
-            iconText.setAttribute('y', y + 25);
+            iconText.setAttribute('y', y + 28);
             iconText.setAttribute('text-anchor', 'middle');
             iconText.setAttribute('font-size', '24px');
             iconText.setAttribute('fill', isDark ? '#e2e8f0' : '#1e293b');
@@ -1169,19 +1280,31 @@ class RepoDiagram {
             // Name
             const nameText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
             nameText.setAttribute('x', x + nodeWidth / 2);
-            nameText.setAttribute('y', y + 55);
+            nameText.setAttribute('y', y + 58);
             nameText.setAttribute('text-anchor', 'middle');
-            nameText.setAttribute('font-size', '12px');
+            nameText.setAttribute('font-size', '11px');
             nameText.setAttribute('font-weight', 'bold');
             nameText.setAttribute('fill', isDark ? '#e2e8f0' : '#1e293b');
-            // Truncate name if too long
-            const maxChars = 20;
+            const maxChars = 18;
             if (name.length > maxChars) {
                 nameText.textContent = name.substring(0, maxChars - 2) + '...';
             } else {
                 nameText.textContent = name;
             }
             group.appendChild(nameText);
+            
+            // File count for directories
+            if (type === 'tree') {
+                const fileCount = this.countFiles(node);
+                const countText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                countText.setAttribute('x', x + nodeWidth / 2);
+                countText.setAttribute('y', y + nodeHeight - 8);
+                countText.setAttribute('text-anchor', 'middle');
+                countText.setAttribute('font-size', '9px');
+                countText.setAttribute('fill', isDark ? '#94a3b8' : '#64748b');
+                countText.textContent = `${fileCount} items`;
+                group.appendChild(countText);
+            }
             
             svg.appendChild(group);
         });
@@ -1343,7 +1466,7 @@ class RepoDiagram {
         if (!layout || layout.size === 0) return;
         
         let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-        const nodeHeight = 80; // node height (50 top + 30 content)
+        const nodeHeight = this.nodeHeight;
         const padding = 20;
         
         for (const [id, { x, y }] of layout) {
@@ -1422,31 +1545,83 @@ class RepoDiagram {
         this.setZoom(this.zoom + delta, e);
     }
 
-    // Mermaid Editor
+    // Mermaid Editor with CodeMirror
     initMermaidEditor() {
         // Load Mermaid library dynamically
-        const script = document.createElement('script');
-        script.src = 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js';
-        script.onload = () => {
+        const mermaidScript = document.createElement('script');
+        mermaidScript.src = 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js';
+        mermaidScript.onload = () => {
             mermaid.initialize({ 
                 startOnLoad: false,
                 theme: 'default',
                 securityLevel: 'loose',
             });
             // Set initial preview if there's code
-            if (this.mermaidCode.value.trim()) {
+            if (this.mermaidCode && this.mermaidCode.getValue()) {
                 this.updateMermaidPreview();
             }
         };
-        document.head.appendChild(script);
+        document.head.appendChild(mermaidScript);
         
-        // Load CodeMirror for syntax highlighting (optional, lightweight version)
-        // We'll use a simple textarea for now to keep it lightweight
-        // Can add CodeMirror later if needed
+        // Initialize CodeMirror
+        const editorElement = document.getElementById('mermaidEditor');
+        if (editorElement && typeof CodeMirror !== 'undefined') {
+            this.mermaidCode = CodeMirror(editorElement, {
+                mode: 'markdown',
+                theme: 'default',
+                lineNumbers: true,
+                lineWrapping: true,
+                autofocus: false,
+                tabSize: 4,
+                indentUnit: 4,
+                extraKeys: {
+                    'Ctrl-Enter': () => this.updateMermaidPreview(),
+                    'Cmd-Enter': () => this.updateMermaidPreview()
+                }
+            });
+            
+            // Set initial placeholder/template
+            this.mermaidCode.setValue(`graph TD
+    A[Start] --> B{Decide}
+    B -->|Yes| C[Do Thing]
+    B -->|No| D[End]
+    C --> D`);
+            
+            // Update preview on change (debounced)
+            let timeout;
+            this.mermaidCode.on('change', () => {
+                clearTimeout(timeout);
+                timeout = setTimeout(() => this.updateMermaidPreview(), 500);
+            });
+            
+            // Initial preview
+            this.updateMermaidPreview();
+        } else {
+            // Fallback to textarea if CodeMirror fails to load
+            console.warn('CodeMirror not available, falling back to textarea');
+            const textarea = document.createElement('textarea');
+            textarea.id = 'mermaidCode';
+            textarea.className = 'flex-1 px-4 py-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm resize-none min-h-[400px] backdrop-blur-sm';
+            textarea.placeholder = `graph TD
+    A[Start] --> B{Decide}
+    B -->|Yes| C[Do Thing]
+    B -->|No| D[End]`;
+            editorElement.replaceWith(textarea);
+            this.mermaidCode = textarea;
+            textarea.addEventListener('input', () => this.updateMermaidPreview());
+        }
     }
 
     updateMermaidPreview() {
-        const code = this.mermaidCode.value.trim();
+        let code;
+        if (this.mermaidCode && typeof this.mermaidCode.getValue === 'function') {
+            code = this.mermaidCode.getValue().trim();
+        } else if (this.mermaidCode) {
+            code = this.mermaidCode.value.trim();
+        } else {
+            return;
+        }
+        
         if (!code) {
             this.mermaidPreview.innerHTML = '<div class="text-slate-400 text-center py-16">Your diagram preview will appear here</div>';
             return;
@@ -1525,20 +1700,41 @@ class RepoDiagram {
 
         const template = templates[type];
         if (template) {
-            this.mermaidCode.value = template;
+            if (this.mermaidCode && typeof this.mermaidCode.setValue === 'function') {
+                this.mermaidCode.setValue(template);
+            } else if (this.mermaidCode) {
+                this.mermaidCode.value = template;
+            }
             this.updateMermaidPreview();
-            this.mermaidCode.focus();
+            if (this.mermaidCode && typeof this.mermaidCode.focus === 'function') {
+                this.mermaidCode.focus();
+            } else if (this.mermaidCode) {
+                this.mermaidCode.focus();
+            }
         }
     }
 
     clearMermaidEditor() {
-        this.mermaidCode.value = '';
+        if (this.mermaidCode && typeof this.mermaidCode.setValue === 'function') {
+            this.mermaidCode.setValue('');
+        } else if (this.mermaidCode) {
+            this.mermaidCode.value = '';
+        }
         this.mermaidPreview.innerHTML = '<div class="text-slate-400 text-center py-16">Your diagram preview will appear here</div>';
     }
 
     exportMermaidFile() {
-        const code = this.mermaidCode.value;
-        if (!code) {
+        let code;
+        if (this.mermaidCode && typeof this.mermaidCode.getValue === 'function') {
+            code = this.mermaidCode.getValue();
+        } else if (this.mermaidCode) {
+            code = this.mermaidCode.value;
+        } else {
+            this.showStatus('No Mermaid code to export', 'error');
+            return;
+        }
+        
+        if (!code.trim()) {
             this.showStatus('No Mermaid code to export', 'error');
             return;
         }
@@ -1557,8 +1753,17 @@ class RepoDiagram {
     }
 
     exportMermaidPNG() {
-        const code = this.mermaidCode.value;
-        if (!code) {
+        let code;
+        if (this.mermaidCode && typeof this.mermaidCode.getValue === 'function') {
+            code = this.mermaidCode.getValue();
+        } else if (this.mermaidCode) {
+            code = this.mermaidCode.value;
+        } else {
+            this.showStatus('No Mermaid code to export', 'error');
+            return;
+        }
+        
+        if (!code.trim()) {
             this.showStatus('No Mermaid code to export', 'error');
             return;
         }
@@ -1596,7 +1801,13 @@ class RepoDiagram {
                     URL.revokeObjectURL(url);
                 };
                 
+                img.onerror = () => {
+                    this.showStatus('Failed to generate PNG from Mermaid', 'error');
+                };
+                
                 img.src = url;
+            }).catch(error => {
+                this.showStatus('Mermaid render error: ' + error.message, 'error');
             });
         } catch (error) {
             this.showStatus('Export failed: ' + error.message, 'error');
