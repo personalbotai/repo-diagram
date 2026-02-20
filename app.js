@@ -914,6 +914,7 @@ class RepoDiagram {
         const { x: minX, y: minY, width, height } = this.exportBounds;
         const nodeWidth = 180;
         const nodeHeight = 80;
+        const isDark = document.body.classList.contains('dark');
 
         // Create SVG
         const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -921,6 +922,15 @@ class RepoDiagram {
         svg.setAttribute('height', height);
         svg.setAttribute('viewBox', `${minX} ${minY} ${width} ${height}`);
         svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+
+        // Background
+        const bgRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        bgRect.setAttribute('x', minX);
+        bgRect.setAttribute('y', minY);
+        bgRect.setAttribute('width', width);
+        bgRect.setAttribute('height', height);
+        bgRect.setAttribute('fill', isDark ? '#0f172a' : '#ffffff');
+        svg.appendChild(bgRect);
 
         // Draw connections (lines)
         const connLines = this.connectionsSvg.querySelectorAll('line');
@@ -935,7 +945,7 @@ class RepoDiagram {
             path.setAttribute('y1', y1);
             path.setAttribute('x2', x2);
             path.setAttribute('y2', y2);
-            path.setAttribute('stroke', '#94a3b8');
+            path.setAttribute('stroke', isDark ? '#475569' : '#94a3b8');
             path.setAttribute('stroke-width', '2');
             path.setAttribute('stroke-linecap', 'round');
             svg.appendChild(path);
@@ -959,8 +969,8 @@ class RepoDiagram {
             rect.setAttribute('width', nodeWidth);
             rect.setAttribute('height', nodeHeight);
             rect.setAttribute('rx', '8');
-            rect.setAttribute('fill', '#ffffff');
-            rect.setAttribute('stroke', type === 'tree' ? '#3b82f6' : '#94a3b8');
+            rect.setAttribute('fill', isDark ? '#1e293b' : '#ffffff');
+            rect.setAttribute('stroke', type === 'tree' ? '#3b82f6' : (isDark ? '#94a3b8' : '#94a3b8'));
             rect.setAttribute('stroke-width', '2');
             group.appendChild(rect);
             
@@ -971,6 +981,7 @@ class RepoDiagram {
             iconText.setAttribute('y', y + 25);
             iconText.setAttribute('text-anchor', 'middle');
             iconText.setAttribute('font-size', '24px');
+            iconText.setAttribute('fill', isDark ? '#e2e8f0' : '#1e293b');
             iconText.textContent = icon;
             group.appendChild(iconText);
             
@@ -981,7 +992,7 @@ class RepoDiagram {
             nameText.setAttribute('text-anchor', 'middle');
             nameText.setAttribute('font-size', '12px');
             nameText.setAttribute('font-weight', 'bold');
-            nameText.setAttribute('fill', '#1e293b');
+            nameText.setAttribute('fill', isDark ? '#e2e8f0' : '#1e293b');
             // Truncate name if too long
             const maxChars = 20;
             if (name.length > maxChars) {
@@ -1019,6 +1030,7 @@ class RepoDiagram {
         const { width, height } = this.exportBounds;
         const nodeWidth = 180;
         const nodeHeight = 80;
+        const isDark = document.body.classList.contains('dark');
 
         // Create a canvas
         const canvas = document.createElement('canvas');
@@ -1026,13 +1038,13 @@ class RepoDiagram {
         canvas.width = width;
         canvas.height = height;
 
-        // White background
-        ctx.fillStyle = '#ffffff';
+        // Background color based on theme
+        ctx.fillStyle = isDark ? '#0f172a' : '#ffffff';
         ctx.fillRect(0, 0, width, height);
 
         // Draw connections (lines)
         const connLines = this.connectionsSvg.querySelectorAll('line');
-        ctx.strokeStyle = '#94a3b8';
+        ctx.strokeStyle = isDark ? '#475569' : '#94a3b8';
         ctx.lineWidth = 2;
         connLines.forEach(line => {
             const x1 = parseFloat(line.getAttribute('x1'));
@@ -1059,8 +1071,8 @@ class RepoDiagram {
             const name = nameEl ? nameEl.textContent : 'Unknown';
             
             // Node background
-            ctx.fillStyle = '#ffffff';
-            ctx.strokeStyle = type === 'tree' ? '#3b82f6' : '#94a3b8';
+            ctx.fillStyle = isDark ? '#1e293b' : '#ffffff';
+            ctx.strokeStyle = type === 'tree' ? (isDark ? '#3b82f6' : '#3b82f6') : (isDark ? '#94a3b8' : '#94a3b8');
             ctx.lineWidth = 2;
             ctx.beginPath();
             ctx.roundRect(x, y, nodeWidth, nodeHeight, 8);
@@ -1070,11 +1082,12 @@ class RepoDiagram {
             // Icon
             const icon = type === 'tree' ? '📁' : '📄';
             ctx.font = '24px sans-serif';
+            ctx.fillStyle = isDark ? '#e2e8f0' : '#1e293b';
             ctx.fillText(icon, x + nodeWidth / 2, y + 25);
 
             // Name
             ctx.font = 'bold 12px sans-serif';
-            ctx.fillStyle = '#1e293b';
+            ctx.fillStyle = isDark ? '#e2e8f0' : '#1e293b';
             const maxChars = 20;
             const displayName = name.length > maxChars ? name.substring(0, maxChars - 2) + '...' : name;
             ctx.fillText(displayName, x + nodeWidth / 2, y + 55);
