@@ -1248,6 +1248,7 @@ class RepoDiagram {
 
     applyTransform() {
         this.nodesContainer.style.transform = `translate(${this.panX}px, ${this.panY}px) scale(${this.zoom})`;
+        this.nodesContainer.style.transformOrigin = '0 0';
         this.connectionsSvg.style.transform = `translate(${this.panX}px, ${this.panY}px) scale(${this.zoom})`;
         this.connectionsSvg.style.transformOrigin = '0 0';
     }
