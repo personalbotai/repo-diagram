@@ -694,15 +694,15 @@ class RepoDiagram {
         container.className = 'node bg-white rounded-xl shadow-md p-4 border-2';
         container.setAttribute('tabindex', '0');
         container.setAttribute('role', 'treeitem');
-        container.setAttribute('aria-label', `${node.type === 'tree' ? 'Folder' : 'File'}: ${node.name}`);
+        container.setAttribute('aria-label', `${node.type === 'tree' ? 'Folder' : 'File'}: ${node.name || 'Unknown'}`);
         container.setAttribute('aria-expanded', node.type === 'tree' ? (this.expanded.has(node.path || 'root') ? 'true' : 'false') : 'null');
         container.dataset.path = node.path || 'root';
-        container.dataset.type = node.type;
+        container.dataset.type = node.type || 'blob';
 
         // Set border color based on type and level
         const level = node.path ? node.path.split('/').length : 0;
         let borderColor;
-        if (node.path === '') {
+        if (node.path === '' || node.path === 'root') {
             borderColor = 'border-blue-500';
         } else if (node.type === 'tree') {
             const colors = ['border-blue-300', 'border-green-300', 'border-yellow-300', 'border-purple-300', 'border-pink-300'];
@@ -718,26 +718,26 @@ class RepoDiagram {
 
         // File count for directories
         let fileCount = '';
-        if (isDirectory) {
+        if (isDirectory && node.children) {
             const fileCountValue = this.countFiles(node);
             fileCount = `<div class="text-xs text-slate-500 mt-1">${fileCountValue} items</div>`;
         }
 
         // Size display
-        const size = node.size > 0 ? this.formatSize(node.size) : '';
+        const size = (node.size || 0) > 0 ? this.formatSize(node.size) : '';
         const sizeDisplay = size ? `<div class="text-xs text-slate-500">${size}</div>` : '';
 
         // Expand/collapse button for directories
         let expandBtn = '';
-        if (isDirectory && node.children.length > 0) {
+        if (isDirectory && node.children && node.children.length > 0) {
             const isExpanded = this.expanded.has(node.path || 'root');
             const chevron = isExpanded ? '▼' : '▶';
             expandBtn = `<button class="expand-btn absolute -left-2 top-1/2 transform -translate-y-1/2 w-6 h-6 bg-white border border-slate-300 rounded-full flex items-center justify-center text-xs hover:bg-slate-50">${chevron}</button>`;
         }
 
         // Search highlight
-        let displayName = node.name;
-        if (this.searchQuery && node.name.toLowerCase().includes(this.searchQuery)) {
+        let displayName = node.name || 'Unknown';
+        if (this.searchQuery && node.name && node.name.toLowerCase().includes(this.searchQuery)) {
             const regex = new RegExp(`(${this.searchQuery})`, 'gi');
             displayName = node.name.replace(regex, '<span class="search-highlight">$1</span>');
         }
@@ -893,24 +893,32 @@ class RepoDiagram {
             `;
             document.body.appendChild(modal);
             
-            // Event listeners
+            // Event listeners (set once)
             modal.querySelector('#closeModal').addEventListener('click', () => this.hideModal());
             modal.querySelector('#closeModalBtn').addEventListener('click', () => this.hideModal());
-            modal.querySelector('#copyPath').addEventListener('click', () => this.copyPathToClipboard(file.path));
+            modal.querySelector('#copyPath').addEventListener('click', () => {
+                const currentPath = modal.dataset.currentPath;
+                if (currentPath) {
+                    this.copyPathToClipboard(currentPath);
+                }
+            });
             modal.addEventListener('click', (e) => {
                 if (e.target === modal) this.hideModal();
             });
         }
         
-        // Update modal content
+        // Store current file path in modal dataset for copy functionality
+        modal.dataset.currentPath = file.path || '';
+        
+        // Update modal content with fallbacks for undefined values
         const content = modal.querySelector('#modalContent');
         content.innerHTML = `
             <div class="space-y-3">
-                <div><strong>Name:</strong> <span class="font-mono">${this.escapeHtml(file.name)}</span></div>
-                <div><strong>Path:</strong> <span class="font-mono text-sm break-all">${this.escapeHtml(file.path)}</span></div>
-                <div><strong>Size:</strong> ${this.formatSize(file.size)}</div>
+                <div><strong>Name:</strong> <span class="font-mono">${this.escapeHtml(file.name || 'Unknown')}</span></div>
+                <div><strong>Path:</strong> <span class="font-mono text-sm break-all">${this.escapeHtml(file.path || 'N/A')}</span></div>
+                <div><strong>Size:</strong> ${file.size !== undefined ? this.formatSize(file.size) : 'N/A'}</div>
                 <div><strong>Type:</strong> ${file.type === 'tree' ? '📁 Directory' : '📄 File'}</div>
-                <div><strong>Mode:</strong> <span class="font-mono text-sm">${file.mode}</span></div>
+                <div><strong>Mode:</strong> <span class="font-mono text-sm">${file.mode || 'N/A'}</span></div>
             </div>
         `;
         
