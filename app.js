@@ -7,6 +7,7 @@ class RepoDiagram {
         this.maxDepth = 2;
         this.searchQuery = '';
         this.currentRepo = '';
+        this.currentBranch = 'main';
         this.cache = new Map();
         this.cacheTimeout = 5 * 60 * 1000; // 5 minutes
         this.rateLimitRemaining = null;
@@ -20,6 +21,7 @@ class RepoDiagram {
 
     initElements() {
         this.repoInput = document.getElementById('repoInput');
+        this.branchInput = document.getElementById('branchInput');
         this.loadBtn = document.getElementById('loadBtn');
         this.expandAllBtn = document.getElementById('expandAllBtn');
         this.collapseAllBtn = document.getElementById('collapseAllBtn');
@@ -126,6 +128,9 @@ class RepoDiagram {
             return;
         }
 
+        // Get branch (default to main)
+        this.currentBranch = this.branchInput.value.trim() || 'main';
+
         // Parse owner/repo format and sanitize
         let repo = input;
         if (input.includes('github.com/')) {
@@ -152,7 +157,7 @@ class RepoDiagram {
             this.expanded.add('root');
             this.render();
             this.updateStats(data);
-            this.showStatus(`Successfully loaded ${repo}`, 'success');
+            this.showStatus(`Successfully loaded ${repo} (branch: ${this.currentBranch})`, 'success');
             this.emptyState.classList.add('hidden');
             this.statsBar.classList.remove('hidden');
         } catch (error) {
@@ -220,7 +225,7 @@ class RepoDiagram {
     }
 
     async makeGitHubRequest(owner, name) {
-        const url = `https://api.github.com/repos/${owner}/${name}/git/trees/main?recursive=1`;
+        const url = `https://api.github.com/repos/${owner}/${name}/git/trees/${this.currentBranch}?recursive=1`;
         const response = await fetch(url, {
             headers: {
                 'Accept': 'application/vnd.github.v3+json'
