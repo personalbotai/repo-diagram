@@ -15,7 +15,7 @@ Interactive, dynamic visualization of GitHub repository structure built with **T
 - **Responsive Design** - Works on desktop and mobile
 - **GitHub Pages Ready** - Deploy with zero configuration
 
-### Phase 1 Enhancements (New!)
+### Phase 2 Enhancements (New!)
 - ✅ **Smart Caching** - 5-minute cache to reduce API calls and improve performance
 - ✅ **Rate Limit Handling** - Detects GitHub API rate limits and provides helpful wait times
 - ✅ **Exponential Backoff** - Automatic retry with backoff on transient failures
@@ -25,6 +25,11 @@ Interactive, dynamic visualization of GitHub repository structure built with **T
 - ✅ **Better Error Handling** - User-friendly error messages with retry suggestions
 - ✅ **Enhanced UI** - Focus indicators, smooth scrolling, improved modal dialogs
 - ✅ **Copy Path** - Click file nodes to see details and copy path to clipboard
+- ✅ **Full Responsive Design** - Mobile-first approach with breakpoints at 480px, 768px, and 1024px
+- ✅ **Adaptive Components** - All UI elements (header, controls, buttons, editor) automatically adjust to screen size
+- ✅ **Touch-Friendly** - Optimized button sizes and spacing for mobile devices
+- ✅ **Dynamic Node Sizing** - Diagram nodes automatically scale based on viewport size
+- ✅ **Progressive Enhancement** - Enhanced layouts for tablet and desktop while maintaining mobile usability
 
 ## Usage
 
@@ -94,7 +99,7 @@ Then follow the Pages settings as above.
 - **Rate Limits**: Unauthenticated GitHub API has 60 requests/hour. Caching helps avoid hitting limits.
 - **Large Repos**: For repositories with >1000 files, consider using a smaller depth setting for better performance
 
-## Future Enhancements (Phase 2+)
+## Future Enhancements (Phase 3+)
 
 - 🔄 Virtual scrolling for very large repositories
 - 🔄 Branch/tag comparison view
@@ -106,6 +111,13 @@ Then follow the Pages settings as above.
 - 🔄 Clone/download button
 - 🔄 Multiple layout options (dendrogram, radial, mindmap)
 - 🔄 Offline mode with service worker
+- 🔄 Undo/redo for zoom/pan
+- 🔄 Bookmark/save diagram state
+- 🔄 Print-friendly styles
+- 🔄 Keyboard shortcuts panel
+- 🔄 Theme customization (user-selectable color schemes)
+- 🔄 Export to PDF via jsPDF
+- 🔄 Share functionality with state serialization
 
 ## Contributing
 
