@@ -54,8 +54,16 @@
                             <div class="flex gap-2 items-center flex-wrap">
                                 <div class="flex items-center gap-2">
                                     <label class="text-sm text-slate-600 whitespace-nowrap">Branch:</label>
-                                    <input type="text" id="branchInput" placeholder="main" value="main"
-                                           class="px-3 py-2 border border-slate-300 rounded-lg font-mono text-sm w-24 backdrop-blur-sm">
+                                    <div class="relative">
+                                        <select id="branchSelect" class="px-3 py-2 border border-slate-300 rounded-lg font-mono text-sm w-32 backdrop-blur-sm appearance-none">
+                                            <option value="">Auto-detect</option>
+                                        </select>
+                                        <div class="absolute right-2 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                                            <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                                            </svg>
+                                        </div>
+                                    </div>
                                 </div>
                                 <div class="flex items-center gap-2">
                                     <label class="text-sm text-slate-600 whitespace-nowrap">Depth:</label>
@@ -231,32 +239,6 @@
                         </div>
                     </div>
                 </div>
-            </div>
-        </div>
-        </div>
-
-        <!-- Status -->
-        <div id="status" class="hidden mb-6 p-4 rounded-lg"></div>
-
-        <!-- Diagram Container -->
-        <div class="bg-white rounded-2xl shadow-xl p-8 relative overflow-hidden">
-            <div id="loading" class="hidden absolute inset-0 bg-white bg-opacity-90 flex items-center justify-center z-20">
-                <div class="text-center">
-                    <div class="inline-block animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent mb-4"></div>
-                    <p class="text-slate-600">Loading repository structure...</p>
-                </div>
-            </div>
-
-            <div id="diagram" class="relative min-h-[500px]">
-                <svg id="connections" class="absolute inset-0 w-full h-full pointer-events-none" style="z-index: 0;"></svg>
-                <div id="nodes" class="relative z-10"></div>
-            </div>
-
-            <!-- Empty State -->
-            <div id="emptyState" class="text-center py-20">
-                <div class="text-6xl mb-4">📦</div>
-                <h3 class="text-xl font-semibold text-slate-700 mb-2">No repository loaded</h3>
-                <p class="text-slate-500">Enter a GitHub repository URL above to visualize its structure</p>
             </div>
         </div>
 

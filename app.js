@@ -34,7 +34,7 @@ class RepoDiagram {
 
     initElements() {
         this.repoInput = document.getElementById('repoInput');
-        this.branchInput = document.getElementById('branchInput');
+        this.branchSelect = document.getElementById('branchSelect');
         this.loadBtn = document.getElementById('loadBtn');
         this.expandAllBtn = document.getElementById('expandAllBtn');
         this.collapseAllBtn = document.getElementById('collapseAllBtn');
@@ -84,6 +84,15 @@ class RepoDiagram {
         this.repoInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') this.loadRepo();
         });
+        
+        // Branch selection change - reload with new branch
+        this.branchSelect.addEventListener('change', (e) => {
+            if (this.currentRepo && e.target.value) {
+                this.currentBranch = e.target.value;
+                this.loadRepo();
+            }
+        });
+        
         this.searchInput.addEventListener('input', (e) => {
             this.searchQuery = e.target.value.toLowerCase();
             this.render();
@@ -193,15 +202,73 @@ class RepoDiagram {
         }
     }
 
+    async fetchBranches(repo) {
+        const [owner, name] = repo.split('/');
+        try {
+            const response = await fetch(`https://api.github.com/repos/${owner}/${name}/branches`, {
+                headers: {
+                    'Accept': 'application/vnd.github.v3+json'
+                }
+            });
+            
+            if (!response.ok) {
+                console.warn('Failed to fetch branches:', response.status);
+                return; // Don't throw - just skip branch dropdown
+            }
+            
+            const branches = await response.json();
+            const branchSelect = this.branchSelect;
+            branchSelect.innerHTML = '<option value="">Auto-detect (default: main)</option>';
+            
+            // Add common default branches first
+            const defaultBranches = ['main', 'master', 'develop', 'dev'];
+            const addedBranches = new Set();
+            
+            // Add defaults if they exist
+            for (const defBranch of defaultBranches) {
+                if (branches.some(b => b.name === defBranch)) {
+                    const option = document.createElement('option');
+                    option.value = defBranch;
+                    option.textContent = defBranch;
+                    branchSelect.appendChild(option);
+                    addedBranches.add(defBranch);
+                }
+            }
+            
+            // Add all other branches
+            for (const branch of branches) {
+                if (!addedBranches.has(branch.name)) {
+                    const option = document.createElement('option');
+                    option.value = branch.name;
+                    option.textContent = branch.name;
+                    branchSelect.appendChild(option);
+                }
+            }
+            
+            // Set current branch if it exists in the list
+            if (this.currentBranch && Array.from(branchSelect.options).some(opt => opt.value === this.currentBranch)) {
+                branchSelect.value = this.currentBranch;
+            } else if (branches.length > 0) {
+                // Select first branch that's not "Auto-detect"
+                const firstRealBranch = Array.from(branchSelect.options).find(opt => opt.value && opt.value !== '');
+                if (firstRealBranch) {
+                    branchSelect.value = firstRealBranch.value;
+                    this.currentBranch = firstRealBranch.value;
+                }
+            }
+            
+            console.log(`Loaded ${branches.length} branches for ${repo}`);
+        } catch (error) {
+            console.warn('Error fetching branches:', error);
+        }
+    }
+
     async loadRepo() {
         const input = this.repoInput.value.trim();
         if (!input) {
             this.showStatus('Please enter a repository', 'error');
             return;
         }
-
-        // Get branch (default to main)
-        this.currentBranch = this.branchInput.value.trim() || 'main';
 
         // Parse owner/repo format and sanitize
         let repo = input;
@@ -223,6 +290,15 @@ class RepoDiagram {
         this.showStatus('', '');
 
         try {
+            // Fetch branches and populate dropdown
+            await this.fetchBranches(repo);
+            
+            // Get selected branch (default to main or first available)
+            this.currentBranch = this.branchSelect.value || 'main';
+            
+            // Clear cache for this repo to avoid stale data
+            this.cache.delete(repo);
+            
             const data = await this.fetchRepoStructure(repo);
             this.repoData = data;
             this.expanded.clear();
@@ -333,6 +409,67 @@ class RepoDiagram {
         }
         if (reset !== null) {
             this.rateLimitReset = parseInt(reset, 10);
+        }
+    }
+
+    async fetchBranches(repo) {
+        const [owner, name] = repo.split('/');
+        try {
+            const response = await fetch(`https://api.github.com/repos/${owner}/${name}/branches`, {
+                headers: {
+                    'Accept': 'application/vnd.github.v3+json'
+                }
+            });
+            
+            if (!response.ok) {
+                console.warn('Failed to fetch branches:', response.status);
+                return; // Don't throw - just skip branch dropdown
+            }
+            
+            const branches = await response.json();
+            const branchSelect = this.branchSelect;
+            branchSelect.innerHTML = '<option value="">Auto-detect (default: main)</option>';
+            
+            // Add common default branches first
+            const defaultBranches = ['main', 'master', 'develop', 'dev'];
+            const addedBranches = new Set();
+            
+            // Add defaults if they exist
+            for (const defBranch of defaultBranches) {
+                if (branches.some(b => b.name === defBranch)) {
+                    const option = document.createElement('option');
+                    option.value = defBranch;
+                    option.textContent = defBranch;
+                    branchSelect.appendChild(option);
+                    addedBranches.add(defBranch);
+                }
+            }
+            
+            // Add all other branches
+            for (const branch of branches) {
+                if (!addedBranches.has(branch.name)) {
+                    const option = document.createElement('option');
+                    option.value = branch.name;
+                    option.textContent = branch.name;
+                    branchSelect.appendChild(option);
+                }
+            }
+            
+            // Set current branch if it exists in the list
+            if (this.currentBranch && Array.from(branchSelect.options).some(opt => opt.value === this.currentBranch)) {
+                branchSelect.value = this.currentBranch;
+            } else if (branches.length > 0) {
+                // Select first branch that's not "Auto-detect"
+                const firstRealBranch = Array.from(branchSelect.options).find(opt => opt.value && opt.value !== '');
+                if (firstRealBranch) {
+                    branchSelect.value = firstRealBranch.value;
+                    this.currentBranch = firstRealBranch.value;
+                }
+            }
+            
+            console.log(`Loaded ${branches.length} branches for ${repo}`);
+        } catch (error) {
+            console.warn('Error fetching branches:', error);
         }
     }
 
@@ -459,13 +596,17 @@ class RepoDiagram {
 
         // Draw nodes
         for (const [id, node] of layout) {
-            const element = this.createNodeElement(node, this.repoData);
-            element.style.position = 'absolute';
-            element.style.left = `${node.x}px`;
-            element.style.top = `${node.y}px`;
-            element.style.width = `${nodeWidth}px`;
-            this.nodesContainer.appendChild(element);
-            nodeElements.set(id, element);
+            try {
+                const element = this.createNodeElement(node, this.repoData);
+                element.style.position = 'absolute';
+                element.style.left = `${node.x}px`;
+                element.style.top = `${node.y}px`;
+                element.style.width = `${nodeWidth}px`;
+                this.nodesContainer.appendChild(element);
+                nodeElements.set(id, element);
+            } catch (error) {
+                console.error('Error creating node:', error, node);
+            }
         }
         
         // Apply current zoom/pan transform
