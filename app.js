@@ -595,17 +595,18 @@ class RepoDiagram {
         this.drawConnections(layout, nodeElements, nodeWidth);
 
         // Draw nodes
-        for (const [id, node] of layout) {
+        for (const [id, layoutNode] of layout) {
             try {
-                const element = this.createNodeElement(node, this.repoData);
+                // layoutNode contains { node: actualNode, x, y, level }
+                const element = this.createNodeElement(layoutNode.node, this.repoData);
                 element.style.position = 'absolute';
-                element.style.left = `${node.x}px`;
-                element.style.top = `${node.y}px`;
+                element.style.left = `${layoutNode.x}px`;
+                element.style.top = `${layoutNode.y}px`;
                 element.style.width = `${nodeWidth}px`;
                 this.nodesContainer.appendChild(element);
                 nodeElements.set(id, element);
             } catch (error) {
-                console.error('Error creating node:', error, node);
+                console.error('Error creating node:', error, layoutNode);
             }
         }
         
