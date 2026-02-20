@@ -610,7 +610,10 @@ class RepoDiagram {
             }
         }
         
-        // Apply current zoom/pan transform
+        // Calculate bounds for export viewBox (including all nodes)
+        this.calculateExportBounds(layout, nodeWidth);
+        
+        // Apply current zoom/pan transform to single group
         this.applyTransform();
     }
 
@@ -951,29 +954,96 @@ class RepoDiagram {
     }
 
     exportSVG() {
-        const svg = document.getElementById('connections');
-        const nodes = document.getElementById('nodes');
-        
-        if (!svg || !nodes) {
+        if (!this.repoData || !this.exportBounds) {
             this.showStatus('No diagram to export', 'error');
             return;
         }
 
-        // Create a combined SVG
-        const exportSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-        exportSvg.setAttribute('width', this.diagram.clientWidth);
-        exportSvg.setAttribute('height', this.diagram.clientHeight);
-        exportSvg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+        const { x: minX, y: minY, width, height } = this.exportBounds;
+        const nodeWidth = 180;
+        const nodeHeight = 80;
 
-        // Clone connections
-        const clonedConnections = svg.cloneNode(true);
-        exportSvg.appendChild(clonedConnections);
+        // Create SVG
+        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+        svg.setAttribute('width', width);
+        svg.setAttribute('height', height);
+        svg.setAttribute('viewBox', `${minX} ${minY} ${width} ${height}`);
+        svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
 
-        // Convert HTML nodes to SVG groups (simplified)
-        // In a production version, we'd convert each node to SVG elements
-        // For now, we'll just export the connections
+        // Draw connections (lines)
+        const connLines = this.connectionsSvg.querySelectorAll('line');
+        connLines.forEach(line => {
+            const x1 = parseFloat(line.getAttribute('x1'));
+            const y1 = parseFloat(line.getAttribute('y1'));
+            const x2 = parseFloat(line.getAttribute('x2'));
+            const y2 = parseFloat(line.getAttribute('y2'));
+            
+            const path = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            path.setAttribute('x1', x1);
+            path.setAttribute('y1', y1);
+            path.setAttribute('x2', x2);
+            path.setAttribute('y2', y2);
+            path.setAttribute('stroke', '#94a3b8');
+            path.setAttribute('stroke-width', '2');
+            path.setAttribute('stroke-linecap', 'round');
+            svg.appendChild(path);
+        });
 
-        const svgData = new XMLSerializer().serializeToString(exportSvg);
+        // Draw nodes as SVG groups
+        const nodeElements = this.nodesContainer.querySelectorAll('.node');
+        nodeElements.forEach(node => {
+            const x = parseFloat(node.style.left);
+            const y = parseFloat(node.style.top);
+            const type = node.dataset.type;
+            const nameEl = node.querySelector('.node-name');
+            const name = nameEl ? nameEl.textContent : 'Unknown';
+            
+            const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+            
+            // Node background (rectangle)
+            const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+            rect.setAttribute('x', x);
+            rect.setAttribute('y', y);
+            rect.setAttribute('width', nodeWidth);
+            rect.setAttribute('height', nodeHeight);
+            rect.setAttribute('rx', '8');
+            rect.setAttribute('fill', '#ffffff');
+            rect.setAttribute('stroke', type === 'tree' ? '#3b82f6' : '#94a3b8');
+            rect.setAttribute('stroke-width', '2');
+            group.appendChild(rect);
+            
+            // Icon (emoji as text)
+            const icon = type === 'tree' ? '📁' : '📄';
+            const iconText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            iconText.setAttribute('x', x + nodeWidth / 2);
+            iconText.setAttribute('y', y + 25);
+            iconText.setAttribute('text-anchor', 'middle');
+            iconText.setAttribute('font-size', '24px');
+            iconText.textContent = icon;
+            group.appendChild(iconText);
+            
+            // Name
+            const nameText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            nameText.setAttribute('x', x + nodeWidth / 2);
+            nameText.setAttribute('y', y + 55);
+            nameText.setAttribute('text-anchor', 'middle');
+            nameText.setAttribute('font-size', '12px');
+            nameText.setAttribute('font-weight', 'bold');
+            nameText.setAttribute('fill', '#1e293b');
+            // Truncate name if too long
+            const maxChars = 20;
+            if (name.length > maxChars) {
+                nameText.textContent = name.substring(0, maxChars - 2) + '...';
+            } else {
+                nameText.textContent = name;
+            }
+            group.appendChild(nameText);
+            
+            svg.appendChild(group);
+        });
+
+        // Export
+        const svgData = new XMLSerializer().serializeToString(svg);
         const blob = new Blob([svgData], { type: 'image/svg+xml' });
         const url = URL.createObjectURL(blob);
         
@@ -989,21 +1059,18 @@ class RepoDiagram {
     }
 
     exportPNG() {
-        // Simple PNG export using canvas
-        const diagram = this.diagram;
-        const nodes = this.nodesContainer;
-        const connections = this.connectionsSvg;
-        
-        if (!this.repoData) {
+        if (!this.repoData || !this.exportBounds) {
             this.showStatus('No diagram to export', 'error');
             return;
         }
 
+        const { width, height } = this.exportBounds;
+        const nodeWidth = 180;
+        const nodeHeight = 80;
+
         // Create a canvas
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
-        const width = diagram.clientWidth;
-        const height = diagram.clientHeight;
         canvas.width = width;
         canvas.height = height;
 
@@ -1011,8 +1078,8 @@ class RepoDiagram {
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, width, height);
 
-        // Draw connections
-        const connLines = connections.querySelectorAll('line');
+        // Draw connections (lines)
+        const connLines = this.connectionsSvg.querySelectorAll('line');
         ctx.strokeStyle = '#94a3b8';
         ctx.lineWidth = 2;
         connLines.forEach(line => {
@@ -1027,36 +1094,38 @@ class RepoDiagram {
         });
 
         // Draw nodes
-        const nodeElements = nodes.querySelectorAll('.node');
+        const nodeElements = this.nodesContainer.querySelectorAll('.node');
         ctx.font = '14px sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
 
         nodeElements.forEach(node => {
-            const x = parseFloat(node.style.left) + 90; // center (180/2)
-            const y = parseFloat(node.style.top) + 40; // center (80/2)
+            const x = parseFloat(node.style.left);
+            const y = parseFloat(node.style.top);
             const type = node.dataset.type;
-            const name = node.querySelector('.node-name').textContent;
-            const rect = node.querySelector('div:first-child'); // the inner content div
-
+            const nameEl = node.querySelector('.node-name');
+            const name = nameEl ? nameEl.textContent : 'Unknown';
+            
             // Node background
             ctx.fillStyle = '#ffffff';
             ctx.strokeStyle = type === 'tree' ? '#3b82f6' : '#94a3b8';
             ctx.lineWidth = 2;
             ctx.beginPath();
-            ctx.roundRect(x - 90, y - 40, 180, 80, 8);
+            ctx.roundRect(x, y, nodeWidth, nodeHeight, 8);
             ctx.fill();
             ctx.stroke();
 
             // Icon
             const icon = type === 'tree' ? '📁' : '📄';
             ctx.font = '24px sans-serif';
-            ctx.fillText(icon, x, y - 15);
+            ctx.fillText(icon, x + nodeWidth / 2, y + 25);
 
             // Name
             ctx.font = 'bold 12px sans-serif';
             ctx.fillStyle = '#1e293b';
-            ctx.fillText(name, x, y + 10);
+            const maxChars = 20;
+            const displayName = name.length > maxChars ? name.substring(0, maxChars - 2) + '...' : name;
+            ctx.fillText(displayName, x + nodeWidth / 2, y + 55);
         });
 
         // Convert to PNG and download
@@ -1141,6 +1210,40 @@ class RepoDiagram {
 
     updateZoomDisplay() {
         this.zoomLevel.textContent = Math.round(this.zoom * 100) + '%';
+    }
+
+    calculateExportBounds(layout, nodeWidth) {
+        if (!layout || layout.size === 0) return;
+        
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        const nodeHeight = 80; // node height (50 top + 30 content)
+        const padding = 20;
+        
+        for (const [id, { x, y }] of layout) {
+            const nodeLeft = x;
+            const nodeRight = x + nodeWidth;
+            const nodeTop = y;
+            const nodeBottom = y + nodeHeight;
+            
+            minX = Math.min(minX, nodeLeft);
+            minY = Math.min(minY, nodeTop);
+            maxX = Math.max(maxX, nodeRight);
+            maxY = Math.max(maxY, nodeBottom);
+        }
+        
+        // Add padding
+        minX -= padding;
+        minY -= padding;
+        maxX += padding;
+        maxY += padding;
+        
+        // Store bounds for export
+        this.exportBounds = {
+            x: minX,
+            y: minY,
+            width: maxX - minX,
+            height: maxY - minY
+        };
     }
 
     applyTransform() {
