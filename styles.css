@@ -653,16 +653,108 @@ textarea:focus-visible {
 
 /* Print styles */
 @media print {
-    #controlsBg, .tab-navigation, footer, #status {
+    #controlsBg, .tab-navigation, footer, #status, .tab-panel {
         display: none !important;
     }
     
-    #diagramTab, #mermaidTab {
+    /* Show only the diagram when printing */
+    #diagramTab {
         display: block !important;
     }
     
+    /* Ensure diagram is visible */
+    #diagram {
+        display: block !important;
+        position: static !important;
+        overflow: visible !important;
+        min-height: auto !important;
+    }
+    
+    /* Remove transforms for print */
+    #nodes, #connections {
+        transform: none !important;
+    }
+    
+    /* Print-friendly node styles */
     .node {
         break-inside: avoid;
         page-break-inside: avoid;
+        print-color-adjust: exact;
+        -webkit-print-color-adjust: exact;
+        box-shadow: none !important;
+        border: 2px solid #333 !important;
+        background: white !important;
+        color: black !important;
+    }
+    
+    /* Hide UI chrome */
+    .glass, .glass-dark, .glass-strong {
+        background: white !important;
+        border: 1px solid #ccc !important;
+        box-shadow: none !important;
+    }
+    
+    /* Force black text for readability */
+    body {
+        background: white !important;
+        color: black !important;
+    }
+    
+    /* Hide search, zoom controls, etc */
+    #searchInput, #zoomOutBtn, #zoomInBtn, #zoomResetBtn, 
+    #panModeBtn, #expandAllBtn, #collapseAllBtn {
+        display: none !important;
+    }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+    .node {
+        border-width: 3px !important;
+        border-color: #000 !important;
+    }
+    
+    .connector {
+        stroke-width: 3px !important;
+        stroke: #000 !important;
+    }
+    
+    button, input, select {
+        border: 2px solid currentColor !important;
+    }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+    
+    .node {
+        animation: none !important;
+    }
+}
+
+/* Dark mode print fix */
+@supports (color: color(display-p3 0 0 0)) {
+    @media print {
+        .dark .node {
+            background: white !important;
+            color: black !important;
+            border-color: #333 !important;
+        }
+        
+        .dark .node-name {
+            color: black !important;
+        }
+        
+        .dark .node-icon {
+            filter: none !important;
+        }
     }
 }

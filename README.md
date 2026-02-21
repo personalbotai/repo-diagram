@@ -51,6 +51,27 @@ Interactive, dynamic visualization of GitHub repository structure built with **T
 | `↓` / `↑` | Navigate between nodes |
 | `Enter` / `Space` | Toggle directory / View file info |
 | `Escape` | Collapse all directories |
+| `Ctrl/Cmd + Enter` | Render Mermaid diagram (in editor) |
+
+## Accessibility
+
+- **Full keyboard navigation** - Navigate and interact without a mouse
+- **ARIA labels and roles** - Screen reader support for tree structure
+- **Focus indicators** - Clear visual focus states for all interactive elements
+- **High contrast mode** support via `@media (prefers-contrast: high)`
+- **Reduced motion** support for users with motion sensitivity
+- **Semantic HTML** - Proper heading hierarchy and landmark roles
+- **Color contrast** - Meets WCAG AA standards for text and UI elements
+
+## Browser Support
+
+Tested and working on:
+- ✅ Chrome/Edge 90+
+- ✅ Firefox 88+
+- ✅ Safari 14+
+- ✅ Mobile browsers (iOS Safari, Chrome Mobile)
+
+**Note**: Some older browsers may not support CSS features like `backdrop-filter` (glassmorphism). The UI gracefully degrades to solid backgrounds.
 
 ## Deployment to GitHub Pages
 
