@@ -14,6 +14,8 @@ class RepoDiagram {
         this.rateLimitReset = null;
         this.focusedNode = null;
         this.nodeTabIndex = 0;
+        this.repoStats = null; // Store repository statistics for smart depth
+        this.maxRepoDepth = 0; // Maximum depth of the repository
         
         // Zoom and Pan state
         this.zoom = 1;
@@ -943,10 +945,81 @@ class RepoDiagram {
 
     updateStats(data) {
         const stats = this.collectStats(data);
+        this.repoStats = stats;
         document.getElementById('totalFiles').textContent = stats.files;
         document.getElementById('totalDirs').textContent = stats.dirs;
         document.getElementById('totalLines').textContent = '~' + stats.lines.toLocaleString();
         document.getElementById('repoSize').textContent = this.formatSize(stats.size);
+        
+        // Calculate maximum depth of repository
+        this.calculateRepoDepth(data);
+        
+        // Update depth select options based on repository depth
+        this.updateDepthOptions();
+    }
+
+    calculateRepoDepth(node) {
+        if (!node || !node.children || node.children.length === 0) {
+            return 0;
+        }
+        
+        let maxChildDepth = 0;
+        for (const child of node.children) {
+            const childDepth = this.calculateRepoDepth(child);
+            maxChildDepth = Math.max(maxChildDepth, childDepth);
+        }
+        
+        return 1 + maxChildDepth;
+    }
+
+    updateDepthOptions() {
+        const depthSelect = this.depthSelect;
+        if (!depthSelect) return;
+        
+        // Store current value
+        const currentValue = depthSelect.value;
+        
+        // Clear existing options except the first one (if any)
+        depthSelect.innerHTML = '';
+        
+        // Create options based on repository depth (max 4, min 1)
+        const maxDepth = Math.min(4, Math.max(1, this.maxRepoDepth));
+        for (let i = 1; i <= maxDepth; i++) {
+            const option = document.createElement('option');
+            option.value = i.toString();
+            option.textContent = i.toString();
+            depthSelect.appendChild(option);
+        }
+        
+        // Restore previous selection if still valid, otherwise select max available
+        if (currentValue && parseInt(currentValue) <= maxDepth) {
+            depthSelect.value = currentValue;
+        } else {
+            // Auto-select smart depth based on repository size
+            const smartDepth = this.calculateSmartDepth();
+            depthSelect.value = smartDepth;
+            this.maxDepth = smartDepth;
+        }
+        
+        console.log(`Repository depth: ${this.maxRepoDepth}, Smart depth: ${this.maxDepth}`);
+    }
+
+    calculateSmartDepth() {
+        if (!this.repoStats) return 2;
+        
+        const { files, dirs } = this.repoStats;
+        const totalEntries = files + dirs;
+        
+        // Smart depth algorithm based on repository size
+        if (totalEntries < 100) {
+            return Math.min(4, this.maxRepoDepth); // Small repo: show full depth
+        } else if (totalEntries < 500) {
+            return Math.min(3, this.maxRepoDepth); // Medium repo: depth 3
+        } else if (totalEntries < 2000) {
+            return Math.min(2, this.maxRepoDepth); // Large repo: depth 2
+        } else {
+            return 1; // Very large repo: depth 1 only
+        }
     }
 
     collectStats(node) {
