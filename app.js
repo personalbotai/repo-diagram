@@ -979,29 +979,30 @@ class RepoDiagram {
         // Store current value
         const currentValue = depthSelect.value;
         
-        // Clear existing options except the first one (if any)
+        // Clear existing options
         depthSelect.innerHTML = '';
         
-        // Create options based on repository depth (max 4, min 1)
-        const maxDepth = Math.min(4, Math.max(1, this.maxRepoDepth));
-        for (let i = 1; i <= maxDepth; i++) {
+        // Always create options 1-5
+        for (let i = 1; i <= 5; i++) {
             const option = document.createElement('option');
             option.value = i.toString();
             option.textContent = i.toString();
             depthSelect.appendChild(option);
         }
         
-        // Restore previous selection if still valid, otherwise select max available
-        if (currentValue && parseInt(currentValue) <= maxDepth) {
+        // Restore previous selection if still valid (1-5)
+        if (currentValue && parseInt(currentValue) >= 1 && parseInt(currentValue) <= 5) {
             depthSelect.value = currentValue;
         } else {
             // Auto-select smart depth based on repository size
             const smartDepth = this.calculateSmartDepth();
-            depthSelect.value = smartDepth;
-            this.maxDepth = smartDepth;
+            // Ensure smartDepth is within 1-5 range
+            const clampedSmartDepth = Math.max(1, Math.min(5, smartDepth));
+            depthSelect.value = clampedSmartDepth;
+            this.maxDepth = clampedSmartDepth;
         }
         
-        console.log(`Repository depth: ${this.maxRepoDepth}, Smart depth: ${this.maxDepth}`);
+        console.log(`Depth options: 1-5, Selected: ${this.maxDepth}`);
     }
 
     calculateSmartDepth() {
@@ -1010,13 +1011,13 @@ class RepoDiagram {
         const { files, dirs } = this.repoStats;
         const totalEntries = files + dirs;
         
-        // Smart depth algorithm based on repository size
+        // Smart depth algorithm based on repository size (1-5 range)
         if (totalEntries < 100) {
-            return Math.min(4, this.maxRepoDepth); // Small repo: show full depth
+            return 4; // Small repo: show deeper structure
         } else if (totalEntries < 500) {
-            return Math.min(3, this.maxRepoDepth); // Medium repo: depth 3
+            return 3; // Medium repo: depth 3
         } else if (totalEntries < 2000) {
-            return Math.min(2, this.maxRepoDepth); // Large repo: depth 2
+            return 2; // Large repo: depth 2
         } else {
             return 1; // Very large repo: depth 1 only
         }
