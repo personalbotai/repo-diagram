@@ -32,6 +32,15 @@ class RepoDiagram {
         // Layout state
         this.currentLayout = 'tree'; // 'tree', 'horizontal', 'radial'
         
+        // Export state
+        this.isExporting = false;
+        this.exportBounds = null;
+        
+        // Undo/Redo state
+        this.undoStack = [];
+        this.redoStack = [];
+        this.maxStackSize = 50;
+        
         // Icon mapping for file extensions
         this.iconMap = {
             // Programming languages
@@ -157,6 +166,14 @@ class RepoDiagram {
         this.clearEditorBtn = document.getElementById('clearEditorBtn');
         this.exportMermaidBtn = document.getElementById('exportMermaidBtn');
         this.exportMermaidPNGBtn = document.getElementById('exportMermaidPNGBtn');
+        
+        // Add ARIA labels to all buttons that lack them
+        document.querySelectorAll('button').forEach(btn => {
+            if (!btn.hasAttribute('aria-label')) {
+                const label = btn.textContent.trim() || btn.id || 'Button';
+                btn.setAttribute('aria-label', label);
+            }
+        });
     }
 
     bindEvents() {
@@ -167,8 +184,9 @@ class RepoDiagram {
         
         // Branch selection change - reload with new branch
         this.branchSelect.addEventListener('change', (e) => {
-            if (this.currentRepo && e.target.value) {
-                this.currentBranch = e.target.value;
+            const newBranch = e.target.value;
+            if (this.currentRepo && newBranch && newBranch !== this.currentBranch) {
+                this.currentBranch = newBranch;
                 this.loadRepo();
             }
         });
@@ -200,9 +218,9 @@ class RepoDiagram {
         this.darkModeBtn.addEventListener('click', () => this.toggleDarkMode());
         
         // PDF export button
-        const exportPDFBtn = document.getElementById('exportPDFBtn');
-        if (exportPDFBtn) {
-            exportPDFBtn.addEventListener('click', () => exportToPDF());
+        this.exportPDFBtn = document.getElementById('exportPDFBtn');
+        if (this.exportPDFBtn) {
+            this.exportPDFBtn.addEventListener('click', () => this.exportPDF());
         }
         
         // Tab navigation
@@ -219,7 +237,7 @@ class RepoDiagram {
         this.diagram.addEventListener('mousedown', (e) => this.handleMouseDown(e));
         window.addEventListener('mousemove', (e) => this.handleMouseMove(e));
         window.addEventListener('mouseup', () => this.handleMouseUp());
-        this.diagram.addEventListener('wheel', (e) => this.handleWheel(e));
+        window.addEventListener('wheel', (e) => this.handleWheel(e));
         
         // Mermaid editor events
         this.mermaidCode.addEventListener('input', () => this.updateMermaidPreview());
@@ -249,6 +267,19 @@ class RepoDiagram {
         const nodes = this.nodesContainer.querySelectorAll('.node');
         if (nodes.length === 0) return;
         
+        // Undo/Redo shortcuts
+        if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+            e.preventDefault();
+            this.editor?.undo();
+            return;
+        }
+        if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
+            e.preventDefault();
+            this.editor?.redo();
+            return;
+        }
+        
+        // Navigation shortcuts
         switch (e.key) {
             case 'ArrowDown':
                 e.preventDefault();
@@ -257,6 +288,28 @@ class RepoDiagram {
             case 'ArrowUp':
                 e.preventDefault();
                 this.focusNextNode(nodes, -1);
+                break;
+            case 'Home':
+                e.preventDefault();
+                this.focusedNode = nodes[0];
+                nodes[0].focus();
+                break;
+            case 'End':
+                e.preventDefault();
+                this.focusedNode = nodes[nodes.length - 1];
+                nodes[nodes.length - 1].focus();
+                break;
+            case 'PageUp':
+                e.preventDefault();
+                const pageUpIndex = Math.max(0, this.getCurrentNodeIndex(nodes) - 10);
+                this.focusedNode = nodes[pageUpIndex];
+                nodes[pageUpIndex].focus();
+                break;
+            case 'PageDown':
+                e.preventDefault();
+                const pageDownIndex = Math.min(nodes.length - 1, this.getCurrentNodeIndex(nodes) + 10);
+                this.focusedNode = nodes[pageDownIndex];
+                nodes[pageDownIndex].focus();
                 break;
             case 'Enter':
             case ' ':
@@ -270,6 +323,13 @@ class RepoDiagram {
                 this.collapseAllBtn.click();
                 break;
         }
+    }
+
+    getCurrentNodeIndex(nodes) {
+        if (this.focusedNode) {
+            return Array.from(nodes).indexOf(this.focusedNode);
+        }
+        return -1;
     }
 
     focusNextNode(nodes, direction) {
@@ -597,6 +657,9 @@ class RepoDiagram {
     }
 
     render() {
+        // Save undo state before rendering
+        this.saveUndoState();
+        
         this.nodesContainer.innerHTML = '';
         this.connectionsSvg.innerHTML = '';
 
@@ -1283,114 +1346,126 @@ class RepoDiagram {
             return;
         }
 
-        const { x: minX, y: minY, width, height } = this.exportBounds;
-        const nodeWidth = this.nodeWidth;
-        const nodeHeight = this.nodeHeight;
-        const isDark = document.body.classList.contains('dark');
+        if (this.isExporting) return;
+        this.isExporting = true;
+        this.showExportLoading('PNG');
 
-        // Create SVG (same as exportSVG but without immediate export)
-        const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-        svg.setAttribute('width', width);
-        svg.setAttribute('height', height);
-        svg.setAttribute('viewBox', `${minX} ${minY} ${width} ${height}`);
-        svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+        try {
+            const { x: minX, y: minY, width, height } = this.exportBounds;
+            const nodeWidth = this.nodeWidth;
+            const nodeHeight = this.nodeHeight;
+            const isDark = document.body.classList.contains('dark');
 
-        // Background
-        const bgRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-        bgRect.setAttribute('x', minX);
-        bgRect.setAttribute('y', minY);
-        bgRect.setAttribute('width', width);
-        bgRect.setAttribute('height', height);
-        bgRect.setAttribute('fill', isDark ? '#0f172a' : '#ffffff');
-        svg.appendChild(bgRect);
+            // Create SVG (same as exportSVG but without immediate export)
+            const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            svg.setAttribute('width', width);
+            svg.setAttribute('height', height);
+            svg.setAttribute('viewBox', `${minX} ${minY} ${width} ${height}`);
+            svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
 
-        // Draw connections (lines)
-        const connLines = this.connectionsSvg.querySelectorAll('line');
-        connLines.forEach(line => {
-            const x1 = parseFloat(line.getAttribute('x1'));
-            const y1 = parseFloat(line.getAttribute('y1'));
-            const x2 = parseFloat(line.getAttribute('x2'));
-            const y2 = parseFloat(line.getAttribute('y2'));
-            
-            const path = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-            path.setAttribute('x1', x1);
-            path.setAttribute('y1', y1);
-            path.setAttribute('x2', x2);
-            path.setAttribute('y2', y2);
-            path.setAttribute('stroke', isDark ? '#475569' : '#94a3b8');
-            path.setAttribute('stroke-width', '2');
-            path.setAttribute('stroke-linecap', 'round');
-            svg.appendChild(path);
-        });
+            // Background
+            const bgRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+            bgRect.setAttribute('x', minX);
+            bgRect.setAttribute('y', minY);
+            bgRect.setAttribute('width', width);
+            bgRect.setAttribute('height', height);
+            bgRect.setAttribute('fill', isDark ? '#0f172a' : '#ffffff');
+            svg.appendChild(bgRect);
 
-        // Draw nodes as SVG groups
-        const nodeElements = this.nodesContainer.querySelectorAll('.node');
-        nodeElements.forEach(node => {
-            const x = parseFloat(node.style.left);
-            const y = parseFloat(node.style.top);
-            const type = node.dataset.type;
-            const nameEl = node.querySelector('.node-name');
-            const name = nameEl ? nameEl.textContent : 'Unknown';
-            
-            const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-            
-            // Node background (rectangle with glass effect)
-            const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-            rect.setAttribute('x', x);
-            rect.setAttribute('y', y);
-            rect.setAttribute('width', nodeWidth);
-            rect.setAttribute('height', nodeHeight);
-            rect.setAttribute('rx', '12');
-            rect.setAttribute('fill', isDark ? 'rgba(30, 41, 59, 0.9)' : 'rgba(255, 255, 255, 0.85)');
-            rect.setAttribute('stroke', type === 'tree' ? '#3b82f6' : (isDark ? '#64748b' : '#94a3b8'));
-            rect.setAttribute('stroke-width', '2');
-            group.appendChild(rect);
-            
-            // Icon (emoji as text)
-            const icon = this.getFileIcon(node);
-            const iconText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-            iconText.setAttribute('x', x + nodeWidth / 2);
-            iconText.setAttribute('y', y + 28);
-            iconText.setAttribute('text-anchor', 'middle');
-            iconText.setAttribute('font-size', '24px');
-            iconText.setAttribute('fill', isDark ? '#e2e8f0' : '#1e293b');
-            iconText.textContent = icon;
-            group.appendChild(iconText);
-            
-            // Name
-            const nameText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-            nameText.setAttribute('x', x + nodeWidth / 2);
-            nameText.setAttribute('y', y + 58);
-            nameText.setAttribute('text-anchor', 'middle');
-            nameText.setAttribute('font-size', '11px');
-            nameText.setAttribute('font-weight', 'bold');
-            nameText.setAttribute('fill', isDark ? '#e2e8f0' : '#1e293b');
-            const maxChars = 18;
-            if (name.length > maxChars) {
-                nameText.textContent = name.substring(0, maxChars - 2) + '...';
-            } else {
-                nameText.textContent = name;
-            }
-            group.appendChild(nameText);
-            
-            // File count for directories
-            if (type === 'tree') {
-                const fileCount = this.countFiles(node);
-                const countText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-                countText.setAttribute('x', x + nodeWidth / 2);
-                countText.setAttribute('y', y + nodeHeight - 8);
-                countText.setAttribute('text-anchor', 'middle');
-                countText.setAttribute('font-size', '9px');
-                countText.setAttribute('fill', isDark ? '#94a3b8' : '#64748b');
-                countText.textContent = `${fileCount} items`;
-                group.appendChild(countText);
-            }
-            
-            svg.appendChild(group);
-        });
+            // Draw connections (lines)
+            const connLines = this.connectionsSvg.querySelectorAll('line');
+            connLines.forEach(line => {
+                const x1 = parseFloat(line.getAttribute('x1'));
+                const y1 = parseFloat(line.getAttribute('y1'));
+                const x2 = parseFloat(line.getAttribute('x2'));
+                const y2 = parseFloat(line.getAttribute('y2'));
+                
+                const path = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                path.setAttribute('x1', x1);
+                path.setAttribute('y1', y1);
+                path.setAttribute('x2', x2);
+                path.setAttribute('y2', y2);
+                path.setAttribute('stroke', isDark ? '#475569' : '#94a3b8');
+                path.setAttribute('stroke-width', '2');
+                path.setAttribute('stroke-linecap', 'round');
+                svg.appendChild(path);
+            });
 
-        // Convert SVG to PNG using canvas
-        this.svgToPng(svg, width, height);
+            // Draw nodes as SVG groups
+            const nodeElements = this.nodesContainer.querySelectorAll('.node');
+            nodeElements.forEach(node => {
+                const x = parseFloat(node.style.left);
+                const y = parseFloat(node.style.top);
+                const type = node.dataset.type;
+                const nameEl = node.querySelector('.node-name');
+                const name = nameEl ? nameEl.textContent : 'Unknown';
+                
+                const group = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+                
+                // Node background (rectangle with glass effect)
+                const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                rect.setAttribute('x', x);
+                rect.setAttribute('y', y);
+                rect.setAttribute('width', nodeWidth);
+                rect.setAttribute('height', nodeHeight);
+                rect.setAttribute('rx', '12');
+                rect.setAttribute('fill', isDark ? 'rgba(30, 41, 59, 0.9)' : 'rgba(255, 255, 255, 0.85)');
+                rect.setAttribute('stroke', type === 'tree' ? '#3b82f6' : (isDark ? '#64748b' : '#94a3b8'));
+                rect.setAttribute('stroke-width', '2');
+                group.appendChild(rect);
+                
+                // Icon (emoji as text)
+                const icon = this.getFileIcon(node);
+                const iconText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                iconText.setAttribute('x', x + nodeWidth / 2);
+                iconText.setAttribute('y', y + 28);
+                iconText.setAttribute('text-anchor', 'middle');
+                iconText.setAttribute('font-size', '24px');
+                iconText.setAttribute('fill', isDark ? '#e2e8f0' : '#1e293b');
+                iconText.textContent = icon;
+                group.appendChild(iconText);
+                
+                // Name
+                const nameText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                nameText.setAttribute('x', x + nodeWidth / 2);
+                nameText.setAttribute('y', y + 58);
+                nameText.setAttribute('text-anchor', 'middle');
+                nameText.setAttribute('font-size', '11px');
+                nameText.setAttribute('font-weight', 'bold');
+                nameText.setAttribute('fill', isDark ? '#e2e8f0' : '#1e293b');
+                const maxChars = 18;
+                if (name.length > maxChars) {
+                    nameText.textContent = name.substring(0, maxChars - 2) + '...';
+                } else {
+                    nameText.textContent = name;
+                }
+                group.appendChild(nameText);
+                
+                // File count for directories
+                if (type === 'tree') {
+                    const fileCount = this.countFiles(node);
+                    const countText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                    countText.setAttribute('x', x + nodeWidth / 2);
+                    countText.setAttribute('y', y + nodeHeight - 8);
+                    countText.setAttribute('text-anchor', 'middle');
+                    countText.setAttribute('font-size', '9px');
+                    countText.setAttribute('fill', isDark ? '#94a3b8' : '#64748b');
+                    countText.textContent = `${fileCount} items`;
+                    group.appendChild(countText);
+                }
+                
+                svg.appendChild(group);
+            });
+
+            // Convert SVG to PNG using canvas
+            this.svgToPng(svg, width, height);
+        } catch (error) {
+            console.error('Export PNG error:', error);
+            this.showStatus('Failed to export PNG: ' + error.message, 'error');
+        } finally {
+            this.isExporting = false;
+            this.hideExportLoading();
+        }
     }
 
     getFileIcon(node) {
@@ -1474,6 +1549,61 @@ class RepoDiagram {
         }
     }
 
+    // ... existing methods ...
+
+    // Export loading states
+    showExportLoading(format) {
+        const overlay = document.getElementById('export-loading');
+        if (overlay) {
+            overlay.style.display = 'flex';
+            overlay.querySelector('p').textContent = `Exporting to ${format}...`;
+        }
+    }
+
+    hideExportLoading() {
+        const overlay = document.getElementById('export-loading');
+        if (overlay) {
+            overlay.style.display = 'none';
+        }
+    }
+
+    saveUndoState() {
+        const content = this.mermaidCode ? this.mermaidCode.getValue() : '';
+        this.undoStack.push(content);
+        if (this.undoStack.length > this.maxStackSize) {
+            this.undoStack.shift();
+        }
+        this.redoStack = [];
+    }
+
+    undo() {
+        if (this.undoStack.length > 1) {
+            this.redoStack.push(this.undoStack.pop());
+            const prevState = this.undoStack[this.undoStack.length - 1];
+            if (this.mermaidCode) {
+                if (typeof this.mermaidCode.setValue === 'function') {
+                    this.mermaidCode.setValue(prevState);
+                } else {
+                    this.mermaidCode.value = prevState;
+                }
+            }
+        }
+    }
+
+    redo() {
+        if (this.redoStack.length > 0) {
+            const nextState = this.redoStack.pop();
+            this.undoStack.push(nextState);
+            if (this.mermaidCode) {
+                if (typeof this.mermaidCode.setValue === 'function') {
+                    this.mermaidCode.setValue(nextState);
+                } else {
+                    this.mermaidCode.value = nextState;
+                }
+            }
+        }
+    }
+
     // Tab Navigation
     switchTab(tabName) {
         this.currentTab = tabName;
@@ -1543,7 +1673,10 @@ class RepoDiagram {
     }
 
     calculateExportBounds(layout, nodeWidth) {
-        if (!layout || layout.size === 0) return;
+        if (!layout || layout.size === 0) {
+            this.exportBounds = null;
+            return;
+        }
         
         let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
         const nodeHeight = this.nodeHeight;
