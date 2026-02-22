@@ -2810,7 +2810,5 @@ function exportMermaidPNG() {
 }
 
 // Initialize app
-// Initialize app after DOM is ready
-document.addEventListener("DOMContentLoaded", () => {
-    window.app = new RepoDiagram();
-});
+// Initialize app (DOM is already ready since script is at end of body)
+window.app = new RepoDiagram();
