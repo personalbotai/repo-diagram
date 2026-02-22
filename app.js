@@ -141,6 +141,11 @@ class RepoDiagram {
         this.darkModeBtn = document.getElementById('darkModeBtn');
         this.controlsBg = document.getElementById('controlsBg');
         
+        // Export buttons
+        this.exportSVGBtn = document.getElementById('exportSVGBtn');
+        this.exportPNGBtn = document.getElementById('exportPNGBtn');
+        this.exportMermaidBtnDiagram = document.getElementById('exportMermaidDiagramBtn');
+        
         // Tab elements
         this.tabDiagram = document.getElementById('tabDiagram');
         this.tabMermaid = document.getElementById('tabMermaid');
@@ -223,6 +228,12 @@ class RepoDiagram {
             this.exportPDFBtn.addEventListener('click', () => this.exportPDF());
         }
         
+        // Mermaid export button (from Diagram tab)
+        this.exportMermaidBtnDiagram = document.getElementById('exportMermaidBtn');
+        if (this.exportMermaidBtnDiagram) {
+            this.exportMermaidBtnDiagram.addEventListener('click', () => this.exportMermaidFromDiagram());
+        }
+        
         // Tab navigation
         this.tabDiagram.addEventListener('click', () => this.switchTab('diagram'));
         this.tabMermaid.addEventListener('click', () => this.switchTab('mermaid'));
@@ -249,6 +260,12 @@ class RepoDiagram {
         this.clearEditorBtn.addEventListener('click', () => this.clearMermaidEditor());
         this.exportMermaidBtn.addEventListener('click', () => this.exportMermaidFile());
         this.exportMermaidPNGBtn.addEventListener('click', () => this.exportMermaidPNG());
+        
+        // Export Mermaid from repository diagram (tab Diagram)
+        this.exportMermaidBtnDiagram = document.getElementById('exportMermaidBtn');
+        if (this.exportMermaidBtnDiagram) {
+            this.exportMermaidBtnDiagram.addEventListener('click', () => this.exportMermaidFromDiagram());
+        }
         
         // Keyboard navigation
         document.addEventListener('keydown', (e) => this.handleKeyDown(e));
@@ -457,9 +474,21 @@ class RepoDiagram {
             this.showStatus(`Successfully loaded ${repo} (branch: ${this.currentBranch})`, 'success');
             this.emptyState.classList.add('hidden');
             this.statsBar.classList.remove('hidden');
+            
+            // Enable Mermaid export button
+            if (this.exportMermaidBtnDiagram) {
+                this.exportMermaidBtnDiagram.disabled = false;
+                this.exportMermaidBtnDiagram.classList.remove('opacity-50', 'cursor-not-allowed');
+            }
         } catch (error) {
             this.showStatus(`Failed to load repository: ${error.message}`, 'error');
             console.error(error);
+            
+            // Disable Mermaid export button
+            if (this.exportMermaidBtnDiagram) {
+                this.exportMermaidBtnDiagram.disabled = true;
+                this.exportMermaidBtnDiagram.classList.add('opacity-50', 'cursor-not-allowed');
+            }
         } finally {
             this.showLoading(false);
         }
@@ -1800,6 +1829,12 @@ class RepoDiagram {
             this.tabMermaid.classList.add('text-slate-600', 'hover:bg-slate-100');
             this.diagramTab.classList.remove('hidden');
             this.mermaidTab.classList.add('hidden');
+            
+            // Update Mermaid export button state when switching to diagram tab
+            if (this.exportMermaidBtnDiagram) {
+                this.exportMermaidBtnDiagram.disabled = !this.repoData;
+                this.exportMermaidBtnDiagram.classList.toggle('opacity-50', !this.repoData);
+            }
         } else {
             this.tabMermaid.classList.add('bg-gradient-to-r', 'from-blue-600', 'to-purple-600', 'text-white', 'shadow-md');
             this.tabMermaid.classList.remove('text-slate-600', 'hover:bg-slate-100');
@@ -2243,6 +2278,78 @@ class RepoDiagram {
         } catch (error) {
             this.showStatus('Export failed: ' + error.message, 'error');
         }
+    }
+
+    // Generate Mermaid code from repository structure
+    generateMermaidCode() {
+        if (!this.repoData) {
+            return '';
+        }
+
+        // Use current depth setting
+        const maxDepth = this.maxDepth;
+        const lines = ['graph TD'];
+        
+        const traverse = (node, parentId = null, depth = 0) => {
+            if (depth > maxDepth) return;
+            
+            const nodeId = node.path || 'root';
+            const isDir = node.type === 'tree';
+            
+            // Create node label with icon and name
+            const icon = this.getFileIcon(node);
+            const displayName = node.name || this.currentRepo;
+            const label = `${icon} ${displayName}`;
+            
+            // Add node
+            if (parentId) {
+                lines.push(`    ${parentId} --> ${nodeId}`);
+            }
+            
+            // Add node definition with styling
+            if (isDir) {
+                lines.push(`    ${nodeId}[${label}]`);
+            } else {
+                lines.push(`    ${nodeId}(${label})`);
+            }
+            
+            // Recurse for children
+            if (node.children && this.expanded.has(nodeId)) {
+                for (const child of node.children) {
+                    traverse(child, nodeId, depth + 1);
+                }
+            }
+        };
+        
+        traverse(this.repoData);
+        
+        return lines.join('\n');
+    }
+
+    // Export Mermaid code from repository diagram (Diagram tab)
+    exportMermaidFromDiagram() {
+        if (!this.repoData) {
+            this.showStatus('No repository loaded', 'error');
+            return;
+        }
+
+        const mermaidCode = this.generateMermaidCode();
+        if (!mermaidCode.trim()) {
+            this.showStatus('Failed to generate Mermaid code', 'error');
+            return;
+        }
+
+        const blob = new Blob([mermaidCode], { type: 'text/plain' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${this.currentRepo.replace('/', '-')}-diagram.mmd`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        this.showStatus('Mermaid diagram exported!', 'success');
     }
 
     // Helper: Convert SVG to PNG
