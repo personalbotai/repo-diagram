@@ -1,0 +1,25 @@
+{
+  "name": "repo-diagram",
+  "version": "1.0.0",
+  "description": "GitHub repository structure visualization tool",
+  "main": "app.js",
+  "scripts": {
+    "test": "npm run test:unit && npm run test:e2e",
+    "test:unit": "jest --config jest.config.js",
+    "test:integration": "jest --config jest.integration.config.js",
+    "test:e2e": "jest --config jest.e2e.config.js",
+    "test:coverage": "jest --coverage --config jest.config.js",
+    "serve": "npx http-server -p 8080 -c-1"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0",
+    "jest-environment-jsdom": "^29.7.0",
+    "@testing-library/dom": "^9.3.3",
+    "@testing-library/jest-dom": "^6.1.4",
+    "@testing-library/user-event": "^14.5.1",
+    "puppeteer": "^21.5.2"
+  },
+  "keywords": ["github", "repository", "visualization", "diagram", "mermaid"],
+  "author": "",
+  "license": "MIT"
+}
