@@ -294,15 +294,29 @@ class RepoDiagram {
         const nodes = this.nodesContainer.querySelectorAll('.node');
         if (nodes.length === 0) return;
         
-        // Undo/Redo shortcuts
+        // Undo/Redo shortcuts (for Mermaid editor when in mermaid tab)
         if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
             e.preventDefault();
-            this.editor?.undo();
+            if (this.currentTab === 'mermaid' && this.mermaidCode) {
+                if (typeof this.mermaidCode.undo === 'function') {
+                    this.mermaidCode.undo();
+                } else if (this.mermaidCode.value !== undefined) {
+                    // Textarea fallback - use our custom undo
+                    this.undo();
+                }
+            }
             return;
         }
         if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
             e.preventDefault();
-            this.editor?.redo();
+            if (this.currentTab === 'mermaid' && this.mermaidCode) {
+                if (typeof this.mermaidCode.redo === 'function') {
+                    this.mermaidCode.redo();
+                } else if (this.mermaidCode.value !== undefined) {
+                    // Textarea fallback - use our custom redo
+                    this.redo();
+                }
+            }
             return;
         }
         
@@ -698,9 +712,7 @@ class RepoDiagram {
     }
 
     render() {
-        // Save undo state before rendering
-        this.saveUndoState();
-        
+        // Render the diagram (no undo state saving here - that's for Mermaid editor)
         this.nodesContainer.innerHTML = '';
         this.connectionsSvg.innerHTML = '';
 
@@ -2041,6 +2053,8 @@ class RepoDiagram {
             // Update preview on change (debounced)
             let timeout;
             this.mermaidCode.on('change', () => {
+                // Save undo state before updating
+                this.saveUndoState();
                 clearTimeout(timeout);
                 timeout = setTimeout(() => this.updateMermaidPreview(), 500);
             });
@@ -2062,7 +2076,10 @@ class RepoDiagram {
     B -->|No| D[End]`;
             editorElement.replaceWith(textarea);
             this.mermaidCode = textarea;
-            textarea.addEventListener('input', () => this.updateMermaidPreview());
+            textarea.addEventListener('input', () => {
+                this.saveUndoState();
+                this.updateMermaidPreview();
+            });
             
             // Bind Mermaid events for textarea fallback
             this.bindMermaidEvents();
@@ -2072,27 +2089,48 @@ class RepoDiagram {
     bindMermaidEvents() {
         // Template insertion buttons
         if (this.insertGraphBtn) {
-            this.insertGraphBtn.addEventListener("click", () => this.insertMermaidTemplate("graph"));
+            this.insertGraphBtn.addEventListener("click", () => {
+                this.saveUndoState();
+                this.insertMermaidTemplate("graph");
+            });
         }
         if (this.insertFlowchartBtn) {
-            this.insertFlowchartBtn.addEventListener("click", () => this.insertMermaidTemplate("flowchart"));
+            this.insertFlowchartBtn.addEventListener("click", () => {
+                this.saveUndoState();
+                this.insertMermaidTemplate("flowchart");
+            });
         }
         if (this.insertSequenceBtn) {
-            this.insertSequenceBtn.addEventListener("click", () => this.insertMermaidTemplate("sequence"));
+            this.insertSequenceBtn.addEventListener("click", () => {
+                this.saveUndoState();
+                this.insertMermaidTemplate("sequence");
+            });
         }
         if (this.insertClassBtn) {
-            this.insertClassBtn.addEventListener("click", () => this.insertMermaidTemplate("class"));
+            this.insertClassBtn.addEventListener("click", () => {
+                this.saveUndoState();
+                this.insertMermaidTemplate("class");
+            });
         }
         if (this.insertStateBtn) {
-            this.insertStateBtn.addEventListener("click", () => this.insertMermaidTemplate("state"));
+            this.insertStateBtn.addEventListener("click", () => {
+                this.saveUndoState();
+                this.insertMermaidTemplate("state");
+            });
         }
         if (this.insertGanttBtn) {
-            this.insertGanttBtn.addEventListener("click", () => this.insertMermaidTemplate("gantt"));
+            this.insertGanttBtn.addEventListener("click", () => {
+                this.saveUndoState();
+                this.insertMermaidTemplate("gantt");
+            });
         }
         
         // Clear and export buttons
         if (this.clearEditorBtn) {
-            this.clearEditorBtn.addEventListener("click", () => this.clearMermaidEditor());
+            this.clearEditorBtn.addEventListener("click", () => {
+                this.saveUndoState();
+                this.clearMermaidEditor();
+            });
         }
         if (this.exportMermaidBtn) {
             this.exportMermaidBtn.addEventListener("click", () => this.exportMermaidFile());
@@ -2837,6 +2875,23 @@ function exportMermaidPNG() {
     }
 }
 
-// Initialize app
-// Initialize app (DOM is already ready since script is at end of body)
-window.app = new RepoDiagram();
+// Export for testing (CommonJS)
+if (typeof module !== 'undefined' && module.exports) {
+  const testApp = new RepoDiagram();
+  module.exports = {
+    buildTree: testApp.buildTree.bind(testApp),
+    formatSize: testApp.formatSize.bind(testApp),
+    getFileExtension: testApp.getFileExtension.bind(testApp),
+    getIconForFilename: testApp.getIconForFilename.bind(testApp),
+    countFiles: testApp.countFiles.bind(testApp),
+    collectStats: testApp.collectStats.bind(testApp),
+    calculateSmartDepth: testApp.calculateSmartDepth.bind(testApp),
+    escapeHtml: testApp.escapeHtml.bind(testApp),
+    RepoDiagram: RepoDiagram
+  };
+}
+
+// Initialize app (browser only)
+if (typeof globalThis !== 'undefined') {
+  globalThis.app = new RepoDiagram();
+}
