@@ -2011,6 +2011,39 @@ class RepoDiagram {
         }
     }
 
+    bindMermaidEvents() {
+        // Template insertion buttons
+        if (this.insertGraphBtn) {
+            this.insertGraphBtn.addEventListener("click", () => this.insertMermaidTemplate("graph"));
+        }
+        if (this.insertFlowchartBtn) {
+            this.insertFlowchartBtn.addEventListener("click", () => this.insertMermaidTemplate("flowchart"));
+        }
+        if (this.insertSequenceBtn) {
+            this.insertSequenceBtn.addEventListener("click", () => this.insertMermaidTemplate("sequence"));
+        }
+        if (this.insertClassBtn) {
+            this.insertClassBtn.addEventListener("click", () => this.insertMermaidTemplate("class"));
+        }
+        if (this.insertStateBtn) {
+            this.insertStateBtn.addEventListener("click", () => this.insertMermaidTemplate("state"));
+        }
+        if (this.insertGanttBtn) {
+            this.insertGanttBtn.addEventListener("click", () => this.insertMermaidTemplate("gantt"));
+        }
+        
+        // Clear and export buttons
+        if (this.clearEditorBtn) {
+            this.clearEditorBtn.addEventListener("click", () => this.clearMermaidEditor());
+        }
+        if (this.exportMermaidBtn) {
+            this.exportMermaidBtn.addEventListener("click", () => this.exportMermaidFile());
+        }
+        if (this.exportMermaidPNGBtn) {
+            this.exportMermaidPNGBtn.addEventListener("click", () => this.exportMermaidPNG());
+        }
+    }
+
     updateMermaidPreview() {
         let code;
         if (this.mermaidCode && typeof this.mermaidCode.getValue === 'function') {
