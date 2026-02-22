@@ -240,7 +240,6 @@ class RepoDiagram {
         window.addEventListener('wheel', (e) => this.handleWheel(e));
         
         // Mermaid editor events
-        this.mermaidCode.addEventListener('input', () => this.updateMermaidPreview());
         this.insertGraphBtn.addEventListener('click', () => this.insertMermaidTemplate('graph'));
         this.insertFlowchartBtn.addEventListener('click', () => this.insertMermaidTemplate('flowchart'));
         this.insertSequenceBtn.addEventListener('click', () => this.insertMermaidTemplate('sequence'));
