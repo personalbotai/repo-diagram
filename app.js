@@ -94,8 +94,8 @@ class RepoDiagram {
         this.nodeHeight = 90; // Increased for better content fit
         
         this.initElements();
-        this.bindEvents();
         this.initMermaidEditor();
+        this.bindEvents();
     }
 
     // Cache management
@@ -159,18 +159,9 @@ class RepoDiagram {
         this.zoomLevel = document.getElementById('zoomLevel');
         this.panModeBtn = document.getElementById('panModeBtn');
         
-        // Mermaid editor elements
-        this.mermaidCode = document.getElementById('mermaidCode');
+        // Mermaid editor elements (will be initialized later after CodeMirror loads)
+        this.mermaidCode = null;
         this.mermaidPreview = document.getElementById('mermaidPreview');
-        this.insertGraphBtn = document.getElementById('insertGraphBtn');
-        this.insertFlowchartBtn = document.getElementById('insertFlowchartBtn');
-        this.insertSequenceBtn = document.getElementById('insertSequenceBtn');
-        this.insertClassBtn = document.getElementById('insertClassBtn');
-        this.insertStateBtn = document.getElementById('insertStateBtn');
-        this.insertGanttBtn = document.getElementById('insertGanttBtn');
-        this.clearEditorBtn = document.getElementById('clearEditorBtn');
-        this.exportMermaidBtn = document.getElementById('exportMermaidBtn');
-        this.exportMermaidPNGBtn = document.getElementById('exportMermaidPNGBtn');
         
         // Add ARIA labels to all buttons that lack them
         document.querySelectorAll('button').forEach(btn => {
@@ -182,45 +173,68 @@ class RepoDiagram {
     }
 
     bindEvents() {
-        this.loadBtn.addEventListener('click', () => this.loadRepo());
-        this.repoInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') this.loadRepo();
-        });
+        // Add event listeners with null checks
+        if (this.loadBtn) {
+            this.loadBtn.addEventListener('click', () => this.loadRepo());
+        }
+        if (this.repoInput) {
+            this.repoInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') this.loadRepo();
+            });
+        }
         
         // Branch selection change - reload with new branch
-        this.branchSelect.addEventListener('change', (e) => {
-            const newBranch = e.target.value;
-            if (this.currentRepo && newBranch && newBranch !== this.currentBranch) {
-                this.currentBranch = newBranch;
-                this.loadRepo();
-            }
-        });
+        if (this.branchSelect) {
+            this.branchSelect.addEventListener('change', (e) => {
+                const newBranch = e.target.value;
+                if (this.currentRepo && newBranch && newBranch !== this.currentBranch) {
+                    this.currentBranch = newBranch;
+                    this.loadRepo();
+                }
+            });
+        }
         
-        this.searchInput.addEventListener('input', (e) => {
-            this.searchQuery = e.target.value.toLowerCase();
-            this.render();
-        });
-        this.depthSelect.addEventListener('change', (e) => {
-            this.maxDepth = parseInt(e.target.value);
-            this.render();
-        });
-        this.layoutSelect.addEventListener('change', (e) => {
-            this.currentLayout = e.target.value;
-            this.render();
-        });
-        this.expandAllBtn.addEventListener('click', () => {
-            if (this.repoData) {
-                this.expandAll(this.repoData);
+        if (this.searchInput) {
+            this.searchInput.addEventListener('input', (e) => {
+                this.searchQuery = e.target.value.toLowerCase();
                 this.render();
-            }
-        });
-        this.collapseAllBtn.addEventListener('click', () => {
-            this.expanded.clear();
-            this.render();
-        });
-        this.exportSVGBtn.addEventListener('click', () => this.exportSVG());
-        this.exportPNGBtn.addEventListener('click', () => this.exportPNG());
-        this.darkModeBtn.addEventListener('click', () => this.toggleDarkMode());
+            });
+        }
+        if (this.depthSelect) {
+            this.depthSelect.addEventListener('change', (e) => {
+                this.maxDepth = parseInt(e.target.value);
+                this.render();
+            });
+        }
+        if (this.layoutSelect) {
+            this.layoutSelect.addEventListener('change', (e) => {
+                this.currentLayout = e.target.value;
+                this.render();
+            });
+        }
+        if (this.expandAllBtn) {
+            this.expandAllBtn.addEventListener('click', () => {
+                if (this.repoData) {
+                    this.expandAll(this.repoData);
+                    this.render();
+                }
+            });
+        }
+        if (this.collapseAllBtn) {
+            this.collapseAllBtn.addEventListener('click', () => {
+                this.expanded.clear();
+                this.render();
+            });
+        }
+        if (this.exportSVGBtn) {
+            this.exportSVGBtn.addEventListener('click', () => this.exportSVG());
+        }
+        if (this.exportPNGBtn) {
+            this.exportPNGBtn.addEventListener('click', () => this.exportPNG());
+        }
+        if (this.darkModeBtn) {
+            this.darkModeBtn.addEventListener('click', () => this.toggleDarkMode());
+        }
         
         // PDF export button
         this.exportPDFBtn = document.getElementById('exportPDFBtn');
@@ -235,37 +249,34 @@ class RepoDiagram {
         }
         
         // Tab navigation
-        this.tabDiagram.addEventListener('click', () => this.switchTab('diagram'));
-        this.tabMermaid.addEventListener('click', () => this.switchTab('mermaid'));
+        if (this.tabDiagram) {
+            this.tabDiagram.addEventListener('click', () => this.switchTab('diagram'));
+        }
+        if (this.tabMermaid) {
+            this.tabMermaid.addEventListener('click', () => this.switchTab('mermaid'));
+        }
         
         // Zoom controls
-        this.zoomInBtn.addEventListener('click', () => this.setZoom(this.zoom + 0.1, null));
-        this.zoomOutBtn.addEventListener('click', () => this.setZoom(this.zoom - 0.1, null));
-        this.zoomResetBtn.addEventListener('click', () => this.resetZoom());
-        this.panModeBtn.addEventListener('click', () => this.togglePanMode());
+        if (this.zoomInBtn) {
+            this.zoomInBtn.addEventListener('click', () => this.setZoom(this.zoom + 0.1, null));
+        }
+        if (this.zoomOutBtn) {
+            this.zoomOutBtn.addEventListener('click', () => this.setZoom(this.zoom - 0.1, null));
+        }
+        if (this.zoomResetBtn) {
+            this.zoomResetBtn.addEventListener('click', () => this.resetZoom());
+        }
+        if (this.panModeBtn) {
+            this.panModeBtn.addEventListener('click', () => this.togglePanMode());
+        }
         
         // Pan/drag events
-        this.diagram.addEventListener('mousedown', (e) => this.handleMouseDown(e));
+        if (this.diagram) {
+            this.diagram.addEventListener('mousedown', (e) => this.handleMouseDown(e));
+        }
         window.addEventListener('mousemove', (e) => this.handleMouseMove(e));
         window.addEventListener('mouseup', () => this.handleMouseUp());
         window.addEventListener('wheel', (e) => this.handleWheel(e));
-        
-        // Mermaid editor events
-        this.insertGraphBtn.addEventListener('click', () => this.insertMermaidTemplate('graph'));
-        this.insertFlowchartBtn.addEventListener('click', () => this.insertMermaidTemplate('flowchart'));
-        this.insertSequenceBtn.addEventListener('click', () => this.insertMermaidTemplate('sequence'));
-        this.insertClassBtn.addEventListener('click', () => this.insertMermaidTemplate('class'));
-        this.insertStateBtn.addEventListener('click', () => this.insertMermaidTemplate('state'));
-        this.insertGanttBtn.addEventListener('click', () => this.insertMermaidTemplate('gantt'));
-        this.clearEditorBtn.addEventListener('click', () => this.clearMermaidEditor());
-        this.exportMermaidBtn.addEventListener('click', () => this.exportMermaidFile());
-        this.exportMermaidPNGBtn.addEventListener('click', () => this.exportMermaidPNG());
-        
-        // Export Mermaid from repository diagram (tab Diagram)
-        this.exportMermaidBtnDiagram = document.getElementById('exportMermaidBtn');
-        if (this.exportMermaidBtnDiagram) {
-            this.exportMermaidBtnDiagram.addEventListener('click', () => this.exportMermaidFromDiagram());
-        }
         
         // Keyboard navigation
         document.addEventListener('keydown', (e) => this.handleKeyDown(e));
@@ -278,7 +289,7 @@ class RepoDiagram {
 
     handleKeyDown(e) {
         // Only handle keyboard navigation when diagram is loaded
-        if (!this.repoData) return;
+        if (!this.repoData || !this.nodesContainer) return;
         
         const nodes = this.nodesContainer.querySelectorAll('.node');
         if (nodes.length === 0) return;
@@ -336,7 +347,9 @@ class RepoDiagram {
                 break;
             case 'Escape':
                 e.preventDefault();
-                this.collapseAllBtn.click();
+                if (this.collapseAllBtn) {
+                    this.collapseAllBtn.click();
+                }
                 break;
         }
     }
@@ -1008,39 +1021,45 @@ class RepoDiagram {
         return parts.length > 1 ? parts[parts.length - 1] : '';
     }
 
-    getFileIcon(node) {
-        if (node.type === 'tree') return '📁';
-        const ext = this.getFileExtension(node.name).toLowerCase();
-        return this.iconMap[ext] || '📄';
-    }
-
     getIconForFilename(filename) {
         const ext = this.getFileExtension(filename).toLowerCase();
         return this.iconMap[ext] || '📄';
     }
 
     showStatus(message, type) {
-        this.status.textContent = message;
-        this.status.className = `p-4 rounded-lg mb-6 ${type ? `status-${type}` : 'hidden'}`;
-        if (type) {
-            this.status.classList.remove('hidden');
-        } else {
-            this.status.classList.add('hidden');
+        if (this.status) {
+            this.status.textContent = message;
+            const className = `p-4 rounded-lg mb-6 ${type ? `status-${type}` : 'hidden'}`;
+            this.status.className = className;
+            if (type) {
+                this.status.classList.remove('hidden');
+            } else {
+                this.status.classList.add('hidden');
+            }
         }
     }
 
     showLoading(show) {
-        this.loading.classList.toggle('hidden', !show);
-        this.loadBtn.disabled = show;
+        if (this.loading) {
+            this.loading.classList.toggle('hidden', !show);
+        }
+        if (this.loadBtn) {
+            this.loadBtn.disabled = show;
+        }
     }
 
     updateStats(data) {
         const stats = this.collectStats(data);
         this.repoStats = stats;
-        document.getElementById('totalFiles').textContent = stats.files;
-        document.getElementById('totalDirs').textContent = stats.dirs;
-        document.getElementById('totalLines').textContent = '~' + stats.lines.toLocaleString();
-        document.getElementById('repoSize').textContent = this.formatSize(stats.size);
+        const totalFilesEl = document.getElementById('totalFiles');
+        const totalDirsEl = document.getElementById('totalDirs');
+        const totalLinesEl = document.getElementById('totalLines');
+        const repoSizeEl = document.getElementById('repoSize');
+        
+        if (totalFilesEl) totalFilesEl.textContent = stats.files;
+        if (totalDirsEl) totalDirsEl.textContent = stats.dirs;
+        if (totalLinesEl) totalLinesEl.textContent = '~' + stats.lines.toLocaleString();
+        if (repoSizeEl) repoSizeEl.textContent = this.formatSize(stats.size);
         
         // Calculate maximum depth of repository
         this.calculateRepoDepth(data);
@@ -1064,32 +1083,31 @@ class RepoDiagram {
     }
 
     updateDepthOptions() {
-        const depthSelect = this.depthSelect;
-        if (!depthSelect) return;
+        if (!this.depthSelect) return;
         
         // Store current value
-        const currentValue = depthSelect.value;
+        const currentValue = this.depthSelect.value;
         
         // Clear existing options
-        depthSelect.innerHTML = '';
+        this.depthSelect.innerHTML = '';
         
         // Always create options 1-5
         for (let i = 1; i <= 5; i++) {
             const option = document.createElement('option');
             option.value = i.toString();
             option.textContent = i.toString();
-            depthSelect.appendChild(option);
+            this.depthSelect.appendChild(option);
         }
         
         // Restore previous selection if still valid (1-5)
         if (currentValue && parseInt(currentValue) >= 1 && parseInt(currentValue) <= 5) {
-            depthSelect.value = currentValue;
+            this.depthSelect.value = currentValue;
         } else {
             // Auto-select smart depth based on repository size
             const smartDepth = this.calculateSmartDepth();
             // Ensure smartDepth is within 1-5 range
             const clampedSmartDepth = Math.max(1, Math.min(5, smartDepth));
-            depthSelect.value = clampedSmartDepth;
+            this.depthSelect.value = clampedSmartDepth;
             this.maxDepth = clampedSmartDepth;
         }
         
@@ -1990,7 +2008,7 @@ class RepoDiagram {
                 securityLevel: 'loose',
             });
             // Set initial preview if there's code
-            if (this.mermaidCode && this.mermaidCode.getValue()) {
+            if (this.mermaidCode && this.mermaidCode.getValue) {
                 this.updateMermaidPreview();
             }
         };
@@ -2029,6 +2047,9 @@ class RepoDiagram {
             
             // Initial preview
             this.updateMermaidPreview();
+            
+            // Bind Mermaid-specific events AFTER CodeMirror is initialized
+            this.bindMermaidEvents();
         } else {
             // Fallback to textarea if CodeMirror fails to load
             console.warn('CodeMirror not available, falling back to textarea');
@@ -2042,6 +2063,9 @@ class RepoDiagram {
             editorElement.replaceWith(textarea);
             this.mermaidCode = textarea;
             textarea.addEventListener('input', () => this.updateMermaidPreview());
+            
+            // Bind Mermaid events for textarea fallback
+            this.bindMermaidEvents();
         }
     }
 
@@ -2080,12 +2104,16 @@ class RepoDiagram {
 
     updateMermaidPreview() {
         let code;
-        if (this.mermaidCode && typeof this.mermaidCode.getValue === 'function') {
-            code = this.mermaidCode.getValue().trim();
-        } else if (this.mermaidCode) {
-            code = this.mermaidCode.value.trim();
+        if (this.mermaidCode) {
+            if (typeof this.mermaidCode.getValue === 'function') {
+                code = this.mermaidCode.getValue().trim();
+            } else if (this.mermaidCode.value) {
+                code = this.mermaidCode.value.trim();
+            } else {
+                code = '';
+            }
         } else {
-            return;
+            code = '';
         }
         
         if (!code) {
